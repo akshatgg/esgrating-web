@@ -113,6 +113,18 @@ export function GradeChip({
   );
 }
 
+/** "Edited" pill beside the title when a report has saved manual edits. */
+export function EditedBadge() {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200 ring-inset"
+      title="This report has manual edits. Reset restores the AI version."
+    >
+      Edited
+    </span>
+  );
+}
+
 /** "ESG" / "BFSI" tag for mixed lists (Needs attention). */
 export function KindBadge({ kind }: { kind: "esg" | "bfsi" }) {
   return (

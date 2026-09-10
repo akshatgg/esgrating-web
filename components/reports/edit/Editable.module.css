@@ -1,0 +1,228 @@
+/* Inline editors inside the report sheets (edit mode only). They inherit the
+   report's own type and colour so the sheet keeps its layout; a faint dashed
+   outline marks what is editable, stronger on hover and focus. Outline colours
+   derive from currentColor so they read on both the white and navy panels. */
+
+.input {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  margin: 0;
+  padding: 0 2px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  outline: 1px dashed color-mix(in srgb, currentColor 22%, transparent);
+  outline-offset: 1px;
+}
+.input:hover {
+  outline-color: color-mix(in srgb, currentColor 60%, transparent);
+}
+.input:focus {
+  outline: 2px dashed color-mix(in srgb, currentColor 80%, transparent);
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+.input::placeholder {
+  color: color-mix(in srgb, currentColor 45%, transparent);
+}
+textarea.input {
+  display: block;
+  resize: vertical;
+  field-sizing: content;
+  min-height: 1.7em;
+}
+
+.num {
+  width: 5.6em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.invalid,
+.invalid:focus {
+  outline-color: #c0392b;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.row > .input {
+  flex: 1;
+}
+
+.tool {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 500 12px/1.2 ui-sans-serif, system-ui, sans-serif;
+  color: #2166b8;
+  background: #fff;
+  border: 1px solid #c9d6ea;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tool:hover {
+  background: #eef4fc;
+}
+.tool:focus-visible {
+  outline: 2px solid #3147ff;
+  outline-offset: 2px;
+}
+.tool:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.iconTool {
+  composes: tool;
+  padding: 2px 6px;
+  color: #8a1f14;
+  border-color: #efc9c4;
+}
+.iconTool:hover {
+  background: #fdf0ee;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 999px;
+  padding: 0 2px 0 8px;
+  font-size: 0.92em;
+  line-height: 1.6;
+}
+.chip button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  width: 1.4em;
+  height: 1.4em;
+  line-height: 1;
+  cursor: pointer;
+}
+.chip button:hover {
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+.chip button:focus-visible {
+  outline: 2px solid currentColor;
+}
+.chipInput {
+  composes: input;
+  width: 9em;
+  flex: 1 1 7em;
+}
+
+.tag {
+  display: inline-block;
+  font: 700 10px/1.4 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a5a00;
+  background: #fff1cc;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.link {
+  font: 500 12px/1.2 ui-sans-serif, system-ui, sans-serif;
+  color: #2166b8;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.link:focus-visible {
+  outline: 2px solid #3147ff;
+  outline-offset: 2px;
+}
+.scoreCell {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.logo {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.logoButton {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 4px;
+  outline: 1px dashed color-mix(in srgb, #2166b8 40%, transparent);
+  outline-offset: 2px;
+}
+.logoButton:hover,
+.logoButton:focus-visible {
+  outline: 2px dashed #2166b8;
+}
+.logoError {
+  font: 12px/1.3 ui-sans-serif, system-ui, sans-serif;
+  color: #c0392b;
+  max-width: 180px;
+}
+
+/* Page-scores table (BFSI Scoring Rationale in edit mode; ESG panel). */
+.pageTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 4px;
+  font-size: 13px;
+  color: #1c2942;
+}
+.pageTable th,
+.pageTable td {
+  border: 1px solid #e3e8f2;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  background: #fff;
+}
+.pageTable th {
+  background: #f2f5fa;
+  font-weight: 600;
+  color: #33415c;
+}
+.pageTable td.edited {
+  background: #fff7e0;
+}
+.pageCol {
+  width: 52px;
+  font-family: ui-monospace, Menlo, monospace;
+  color: #2166b8;
+  font-weight: 600;
+}
+.scoreCol {
+  width: 92px;
+}
+.origCol {
+  width: 70px;
+  color: #7a879c;
+  font-variant-numeric: tabular-nums;
+}
