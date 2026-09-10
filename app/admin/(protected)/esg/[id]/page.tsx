@@ -10,6 +10,7 @@ import {
   Clock,
   Download,
   Mail,
+  PencilLine,
   Phone,
   RefreshCw,
   User,
@@ -19,17 +20,28 @@ import type { EsgSubmission } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { downloadPdf, pdfBlob, ESG_PDF_OPTS } from "@/lib/pdf";
+import type { EsgEffective } from "@/lib/reportEdits";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import AnalyzePanel from "@/components/admin/AnalyzePanel";
 import SendReportButton from "@/components/admin/SendReportButton";
 import PageHeader from "@/components/admin/PageHeader";
 import DetailRail from "@/components/admin/DetailRail";
 import ReportPreview from "@/components/admin/ReportPreview";
+import ReportEditBar from "@/components/admin/ReportEditBar";
+import { useReportEditor } from "@/components/admin/useReportEditor";
 import { DetailSkeleton } from "@/components/admin/Skeleton";
-import { StatusBadge, submissionState, submissionStatusLabel } from "@/components/admin/Badge";
+import {
+  EditedBadge,
+  StatusBadge,
+  submissionState,
+  submissionStatusLabel,
+} from "@/components/admin/Badge";
 import { CARD } from "@/components/admin/styles";
 import EsgReport, { ESG_REPORT_PDF_FILENAME } from "@/components/reports/EsgReport";
+import { ReportEditProvider } from "@/components/reports/edit/ReportEdit";
+import PageScoresTables from "@/components/reports/edit/PageScoresPanel";
 
 const PDF_FILENAME = ESG_REPORT_PDF_FILENAME;
 
@@ -52,6 +64,7 @@ export default function EsgSubmissionDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [confirmRerun, setConfirmRerun] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,6 +96,11 @@ export default function EsgSubmissionDetailPage() {
     }
   }, [id]);
 
+  const editor = useReportEditor<EsgEffective>("esg", id, {
+    enabled: !!sub?.final && sub.analysis_status !== "running",
+    onSaved: reload,
+  });
+
   async function handleAnalyze() {
     setActionError(null);
     // Optimistically flip to "running" (with a fresh `analysis_started_at`,
@@ -106,6 +124,12 @@ export default function EsgSubmissionDetailPage() {
     } finally {
       await reload();
     }
+  }
+
+  /** Re-running replaces saved edits, so confirm first when there are any. */
+  function requestAnalyze() {
+    if (editor.report?.edited) setConfirmRerun(true);
+    else void handleAnalyze();
   }
 
   async function handleDownload() {
@@ -141,6 +165,10 @@ export default function EsgSubmissionDetailPage() {
   const running = sub.analysis_status === "running";
   const final = sub.final;
   const showReport = !running && !!final;
+  const editing = editor.editing;
+  // The effective (edited / previewed) report when there is one, else the
+  // stored `final` exactly as before.
+  const viewFinal = editor.liveEffective?.final ?? final;
 
   return (
     <div className="flex flex-col gap-5">
@@ -148,7 +176,12 @@ export default function EsgSubmissionDetailPage() {
         crumbs={[...LIST_CRUMBS, { label: sub.company_name }]}
         title={sub.company_name}
         description={`FY ${sub.report_year} report from ${sub.name}`}
-        badge={<StatusBadge state={submissionState(sub)} label={submissionStatusLabel(sub)} />}
+        badge={
+          <>
+            <StatusBadge state={submissionState(sub)} label={submissionStatusLabel(sub)} />
+            {editor.report?.edited ? <EditedBadge /> : null}
+          </>
+        }
       />
 
       {/* With a report showing, two columns only from 2xl: the 736–750px sheet
@@ -169,7 +202,7 @@ export default function EsgSubmissionDetailPage() {
         >
           {actionError ? <Alert variant="error">{actionError}</Alert> : null}
 
-          {running || !final ? (
+          {running || !final || !viewFinal ? (
             <AnalyzePanel
               status={running ? "running" : sub.analysis_status}
               error={sub.analysis_error}
@@ -187,39 +220,92 @@ export default function EsgSubmissionDetailPage() {
                 </Alert>
               ) : null}
 
-              {/* Report actions left, Re-run right; when the column is too
-                  narrow, Re-run drops to its own line. */}
-              <div
-                className={clsx(CARD, "flex flex-wrap items-center justify-between gap-2 p-3")}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="adminPrimary" onClick={handleDownload} disabled={downloading}>
-                    <Download className="h-4 w-4" aria-hidden="true" />
-                    {downloading ? "Preparing…" : "Download PDF"}
-                  </Button>
-                  <SendReportButton
-                    getPdfs={async () => [
-                      await pdfBlob(reportRef.current as HTMLElement, ESG_PDF_OPTS),
-                    ]}
-                    endpoint={`/api/admin/esg/submissions/${id}/send`}
-                    email={sub.email}
-                  />
-                </div>
-                <Button variant="adminGhost" onClick={handleAnalyze}>
-                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                  Re-run analysis
-                </Button>
-              </div>
-
-              <ReportPreview caption="The PDF and the emailed copy match this sheet.">
-                <EsgReport
-                  ref={reportRef}
-                  final={final}
-                  yearScore={sub.year_score}
-                  companyName={sub.company_name}
-                  fy={sub.report_year}
+              {editing ? (
+                <ReportEditBar
+                  dirty={editor.dirty}
+                  saving={editor.saving}
+                  previewing={editor.previewing}
+                  error={editor.error}
+                  edited={!!editor.report?.edited}
+                  onSave={editor.save}
+                  onCancel={editor.cancel}
+                  onReset={editor.reset}
                 />
-              </ReportPreview>
+              ) : (
+                /* Report actions left, Re-run right; when the column is too
+                   narrow, Re-run drops to its own line. */
+                <div
+                  className={clsx(CARD, "flex flex-wrap items-center justify-between gap-2 p-3")}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="adminPrimary" onClick={handleDownload} disabled={downloading}>
+                      <Download className="h-4 w-4" aria-hidden="true" />
+                      {downloading ? "Preparing…" : "Download PDF"}
+                    </Button>
+                    <SendReportButton
+                      getPdfs={async () => [
+                        await pdfBlob(reportRef.current as HTMLElement, ESG_PDF_OPTS),
+                      ]}
+                      endpoint={`/api/admin/esg/submissions/${id}/send`}
+                      email={sub.email}
+                    />
+                    {editor.unavailable ? null : (
+                      <Button
+                        variant="adminSecondary"
+                        onClick={editor.start}
+                        disabled={!editor.report}
+                      >
+                        <PencilLine className="h-4 w-4" aria-hidden="true" />
+                        Edit report
+                      </Button>
+                    )}
+                  </div>
+                  <Button variant="adminGhost" onClick={requestAnalyze}>
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                    Re-run analysis
+                  </Button>
+                </div>
+              )}
+
+              <ReportEditProvider value={editing ? editor.editCtx : editor.savedCtx}>
+                <ReportPreview
+                  caption={
+                    editing
+                      ? "Edits preview live. Save to use them in the PDF and the emailed copy."
+                      : "The PDF and the emailed copy match this sheet."
+                  }
+                >
+                  <EsgReport
+                    ref={reportRef}
+                    final={viewFinal}
+                    yearScore={sub.year_score}
+                    companyName={sub.company_name}
+                    fy={sub.report_year}
+                  />
+                </ReportPreview>
+
+                {editing ? (
+                  <section
+                    aria-labelledby="page-scores-title"
+                    className={clsx(CARD, "min-w-0 overflow-hidden")}
+                  >
+                    <header className="px-5 pt-4 pb-3">
+                      <h2 id="page-scores-title" className="text-[15px] font-semibold text-ink">
+                        Page scores
+                      </h2>
+                      <p className="mt-0.5 text-[13px] text-muted">
+                        Each pillar score is the average of its page scores. Change one to recompute
+                        the average, the composite score and the grades.
+                      </p>
+                    </header>
+                    <div className="overflow-x-auto border-t border-line px-5 pt-2 pb-4">
+                      <div className="min-w-[560px]">
+                        <PageScoresTables />
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+              </ReportEditProvider>
             </>
           )}
         </div>
@@ -244,6 +330,20 @@ export default function EsgSubmissionDetailPage() {
           ]}
         />
       </div>
+
+      <ConfirmDialog
+        open={confirmRerun}
+        onClose={() => setConfirmRerun(false)}
+        title="Re-run the analysis?"
+        confirmLabel="Re-run analysis"
+        danger
+        onConfirm={() => {
+          void handleAnalyze();
+        }}
+      >
+        Re-running replaces your edits. The report will be regenerated from the uploaded file and
+        every manual change (scores, headings, content and the custom logo) is discarded.
+      </ConfirmDialog>
     </div>
   );
 }

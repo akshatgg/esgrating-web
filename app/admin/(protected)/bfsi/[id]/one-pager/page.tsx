@@ -1,21 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Download, Sparkles } from "lucide-react";
+import { ArrowLeft, Download, PencilLine, Sparkles } from "lucide-react";
 import clsx from "clsx";
 import type { BfsiDetail } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { BFSI_PDF_OPTS, downloadPdf } from "@/lib/pdf";
+import { bfsiView, type BfsiEffective } from "@/lib/reportEdits";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/admin/PageHeader";
 import ReportPreview from "@/components/admin/ReportPreview";
+import ReportEditBar from "@/components/admin/ReportEditBar";
+import { useReportEditor } from "@/components/admin/useReportEditor";
 import IconTile from "@/components/admin/IconTile";
+import { EditedBadge } from "@/components/admin/Badge";
 import { Bone } from "@/components/admin/Skeleton";
 import { CARD, FOCUS_RING } from "@/components/admin/styles";
 import BfsiOnePager from "@/components/reports/BfsiOnePager";
+import { ReportEditProvider } from "@/components/reports/edit/ReportEdit";
 
 /** Port of bfsi-calculator/admin/one_pager.php. */
 export default function BfsiOnePagerPage() {
@@ -45,6 +50,19 @@ export default function BfsiOnePagerPage() {
     };
   }, [id]);
 
+  const reload = useCallback(async () => {
+    try {
+      setDetail(await apiFetch<BfsiDetail>(`/api/admin/bfsi/submissions/${id}`));
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
+  }, [id]);
+
+  const editor = useReportEditor<BfsiEffective>("bfsi", id, {
+    enabled: !!detail?.submission.ai_analysis && !!detail.overall,
+    onSaved: reload,
+  });
+
   async function handleDownload() {
     if (!ref.current) return;
     setDownloading(true);
@@ -66,25 +84,35 @@ export default function BfsiOnePagerPage() {
     { label: "One-page report" },
   ];
   const ready = !!detail?.submission.ai_analysis && !!detail?.overall;
+  const editing = editor.editing;
 
   const header = (
     <PageHeader
       crumbs={crumbs}
       title="One-Page Rating Report"
+      badge={editor.report?.edited ? <EditedBadge /> : undefined}
       description={borrower}
       actions={
-        <>
-          <Button variant="adminSecondary" href={`/admin/bfsi/${id}`}>
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Detailed report
-          </Button>
-          {ready ? (
-            <Button variant="adminPrimary" onClick={handleDownload} disabled={downloading}>
-              <Download className="h-4 w-4" aria-hidden="true" />
-              {downloading ? "Preparing…" : "Download PDF"}
+        editing ? undefined : (
+          <>
+            <Button variant="adminSecondary" href={`/admin/bfsi/${id}`}>
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Detailed report
             </Button>
-          ) : null}
-        </>
+            {ready && !editor.unavailable ? (
+              <Button variant="adminSecondary" onClick={editor.start} disabled={!editor.report}>
+                <PencilLine className="h-4 w-4" aria-hidden="true" />
+                Edit report
+              </Button>
+            ) : null}
+            {ready ? (
+              <Button variant="adminPrimary" onClick={handleDownload} disabled={downloading}>
+                <Download className="h-4 w-4" aria-hidden="true" />
+                {downloading ? "Preparing…" : "Download PDF"}
+              </Button>
+            ) : null}
+          </>
+        )
       }
     />
   );
@@ -139,20 +167,45 @@ export default function BfsiOnePagerPage() {
     );
   }
 
+  const view = editor.liveEffective
+    ? bfsiView(sub, editor.liveEffective, editor.pages)
+    : { submission: sub, overall };
+
   return (
     <div className="flex flex-col gap-5">
       {header}
 
       {actionError ? <Alert variant="error">{actionError}</Alert> : null}
 
-      <ReportPreview caption="Downloads as esg-rating-report PDF.">
-        <BfsiOnePager
-          ref={ref}
-          submission={sub}
-          overall={overall}
-          previous={previous}
-          industryLabel={industry_label}
+      {editing ? (
+        <ReportEditBar
+          dirty={editor.dirty}
+          saving={editor.saving}
+          previewing={editor.previewing}
+          error={editor.error}
+          edited={!!editor.report?.edited}
+          onSave={editor.save}
+          onCancel={editor.cancel}
+          onReset={editor.reset}
         />
+      ) : null}
+
+      <ReportPreview
+        caption={
+          editing
+            ? "Edits preview live and apply to the detailed report too. Save to use them in the PDF."
+            : "Downloads as esg-rating-report PDF."
+        }
+      >
+        <ReportEditProvider value={editing ? editor.editCtx : editor.savedCtx}>
+          <BfsiOnePager
+            ref={ref}
+            submission={view.submission}
+            overall={view.overall}
+            previous={previous}
+            industryLabel={industry_label}
+          />
+        </ReportEditProvider>
       </ReportPreview>
     </div>
   );
