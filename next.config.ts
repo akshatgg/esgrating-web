@@ -11,6 +11,7 @@ const blogSlugs = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  images: { formats: ["image/avif", "image/webp"] },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API_URL}/api/:path*` }];
   },
