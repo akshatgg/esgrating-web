@@ -109,17 +109,6 @@ export default function AdminShell({ username, children }: AdminShellProps) {
         Skip to content
       </a>
 
-      <aside
-        aria-label="Sidebar"
-        className="fixed inset-y-0 left-0 z-40 hidden w-[264px] flex-col border-r border-line bg-white lg:flex"
-      >
-        <div className="flex h-[76px] shrink-0 items-center px-4">
-          <BrandLink />
-        </div>
-        <SidebarNav active={active} idPrefix="sidebar" />
-        <SidebarFooter />
-      </aside>
-
       <AdminDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -127,7 +116,25 @@ export default function AdminShell({ username, children }: AdminShellProps) {
         active={active}
       />
 
-      <div className="relative lg:pl-[264px]">
+      {/* From lg up: a two-column row. The aside is a flex item, so its white
+          column stretches the full page height (also in full-page captures);
+          the inner panel is sticky and viewport-tall, so the nav scrolls on
+          its own and the footer stays pinned to the bottom of the screen. */}
+      <div className="lg:flex">
+      <aside
+        aria-label="Sidebar"
+        className="hidden w-[264px] shrink-0 border-r border-line bg-white lg:block"
+      >
+        <div className="sticky top-0 flex h-screen flex-col">
+          <div className="flex h-[76px] shrink-0 items-center px-4">
+            <BrandLink />
+          </div>
+          <SidebarNav active={active} idPrefix="sidebar" />
+          <SidebarFooter />
+        </div>
+      </aside>
+
+      <div className="relative min-w-0 flex-1">
         {/* Faint brand glow at the top so the glass bar has something to frost. */}
         <div
           aria-hidden="true"
@@ -164,6 +171,7 @@ export default function AdminShell({ username, children }: AdminShellProps) {
             {children}
           </main>
         </div>
+      </div>
       </div>
     </div>
   );
