@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import clsx from "clsx";
 import { NAV } from "@/content/site";
+import { isActivePath } from "@/lib/nav";
 import MobileNav from "./MobileNav";
 
 export default function Header() {
@@ -18,7 +19,10 @@ export default function Header() {
     <>
       <header className="fixed inset-x-0 top-0 z-40 h-[76px] w-full border-b border-line bg-white shadow-sm lg:h-[101px]">
         <div className="mx-auto flex h-full w-full max-w-[1280px] items-center justify-between px-4 md:px-8">
-          <Link href="/" className="flex shrink-0 items-center transition-transform hover:scale-[1.04]">
+          <Link
+            href="/"
+            className="flex shrink-0 items-center motion-safe:transition-transform motion-safe:hover:scale-[1.04]"
+          >
             <Image
               src="/brand/logo.jpg"
               alt="ESG Ratings"
@@ -32,8 +36,7 @@ export default function Header() {
           <nav aria-label="Primary" className="hidden lg:block">
             <ul className="flex items-center gap-8 text-[17px] font-medium">
               {NAV.map((item) => {
-                const isActive =
-                  item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                const isActive = isActivePath(pathname, item.href);
                 return (
                   <li key={item.href}>
                     <Link

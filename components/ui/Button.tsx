@@ -5,7 +5,7 @@ import clsx from "clsx";
 export type ButtonVariant = "primary" | "calcNavy" | "calcBlue" | "outline";
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: "cta-sweep bg-brand text-white",
+  primary: "bg-brand text-white",
   calcNavy: "cta-sweep bg-calc-navy text-white hover:bg-calc-navy-hover",
   calcBlue: "cta-sweep bg-calc-blue text-white",
   outline: "border border-line bg-white text-ink hover:border-calc-blue",
@@ -22,34 +22,27 @@ type CommonProps = {
 
 type LinkButtonProps = CommonProps & {
   href: string;
-  onClick?: never;
 };
 
 type ClickButtonProps = CommonProps &
-  Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children"> & {
-    href?: never;
-  };
+  Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children">;
 
 export type ButtonProps = LinkButtonProps | ClickButtonProps;
 
 export default function Button(props: ButtonProps) {
-  const { variant = "primary", className, children } = props;
+  const { variant = "primary", className, children, ...rest } = props;
   const classes = clsx(BASE_CLASSES, VARIANT_CLASSES[variant], className);
 
-  if ("href" in props && props.href) {
+  if ("href" in rest && rest.href) {
     return (
-      <Link href={props.href} className={classes}>
+      <Link href={rest.href} className={classes}>
         {children}
       </Link>
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { variant: _variant, className: _className, children: _children, href: _href, ...buttonProps } =
-    props as ClickButtonProps;
-
   return (
-    <button type="button" className={classes} {...buttonProps}>
+    <button type="button" className={classes} {...rest}>
       {children}
     </button>
   );

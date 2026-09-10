@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import clsx from "clsx";
 import { NAV, CONTACT } from "@/content/site";
+import { isActivePath } from "@/lib/nav";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
@@ -26,13 +27,20 @@ export default function MobileNav({ open, onClose, triggerRef }: MobileNavProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Lock body scroll while open.
+  // Lock body scroll while open, compensating for the scrollbar so the
+  // page doesn't shift width when it disappears.
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
     return () => {
-      document.body.style.overflow = previous;
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
     };
   }, [open]);
 
@@ -89,7 +97,7 @@ export default function MobileNav({ open, onClose, triggerRef }: MobileNavProps)
         tabIndex={-1}
         onClick={onClose}
         className={clsx(
-          "absolute inset-0 bg-navy/50 transition-opacity duration-300",
+          "absolute inset-0 bg-navy/50 motion-safe:transition-opacity motion-safe:duration-300",
           open ? "opacity-100" : "opacity-0",
         )}
       />
@@ -102,7 +110,7 @@ export default function MobileNav({ open, onClose, triggerRef }: MobileNavProps)
         aria-modal="true"
         aria-label="Site navigation"
         className={clsx(
-          "absolute top-0 right-0 flex h-full w-[85%] max-w-sm flex-col gap-8 bg-white px-6 py-6 shadow-2xl transition-transform duration-300 ease-out",
+          "absolute top-0 right-0 flex h-full w-[85%] max-w-sm flex-col gap-8 bg-white px-6 py-6 shadow-2xl motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out",
           open ? "translate-x-0" : "translate-x-full",
         )}
       >
@@ -119,16 +127,23 @@ export default function MobileNav({ open, onClose, triggerRef }: MobileNavProps)
 
         <nav aria-label="Primary">
           <ul className="flex flex-col gap-1">
-            {NAV.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="block rounded-lg px-3 py-3 text-lg font-medium text-navy hover:bg-bg-soft hover:text-calc-blue"
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
+            {NAV.map((item) => {
+              const isActive = isActivePath(pathname, item.href);
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    aria-current={isActive ? "page" : undefined}
+                    className={clsx(
+                      "block rounded-lg px-3 py-3 text-lg font-medium hover:bg-bg-soft hover:text-calc-blue",
+                      isActive ? "text-calc-blue font-semibold" : "text-navy",
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
