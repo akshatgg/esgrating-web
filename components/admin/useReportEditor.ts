@@ -207,7 +207,8 @@ export function useReportEditor<E extends Effective>(
     setDirty(false);
     setPreview(null);
     setError(null);
-    setLogoBust(Date.now());
+    // Swap in the reset report before touching the cache-buster, so the
+    // just-deleted custom logo isn't requested again.
     const res = await getReport<E>(kind, id).catch(() => null);
     if (res) setReport(res);
     await onSaved?.();

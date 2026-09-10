@@ -163,6 +163,9 @@ textarea.input {
 }
 
 .logo {
+  /* Contains the sr-only file input, which would otherwise escape the
+     report's horizontal scroller and widen the page. */
+  position: relative;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
