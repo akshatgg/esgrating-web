@@ -5,8 +5,10 @@ import { formatScore, capitalizeFirst } from "@/lib/format";
 import Doughnut from "@/components/reports/Doughnut";
 import styles from "@/components/reports/EsgReport.module.css";
 
-const LOGO_SRC =
-  "https://esgratings.co.in/wp-content/uploads/2024/10/WhatsApp-Image-2024-10-09-at-14.04.04_db00d97a-e1728803538909.jpg";
+/** Same-origin copy of the template's logo (byte-identical to the
+ * esgratings.co.in WhatsApp-Image-2024-10-09 upload), so html2canvas can draw
+ * it into the PDF under `useCORS: false`. */
+const LOGO_SRC = "/brand/logo.jpg";
 
 type YearScoreOk = Extract<YearScore, { latest_year: string }>;
 
@@ -72,8 +74,8 @@ const EsgReport = forwardRef<HTMLDivElement, EsgReportProps>(function EsgReport(
       <div ref={ref} className={styles["report-container"]}>
         <div className={styles["esg-title"]}>
           <div>
-            {/* eslint-disable-next-line @next/next/no-img-element -- external
-                logo URL from the original template, not an optimisable local asset */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>
+                so html2canvas can capture it into the PDF */}
             <img src={LOGO_SRC} alt="ESG Logo" width={100} height={100} />
           </div>
           <div>SEBI Registered ERP</div>

@@ -256,22 +256,30 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
             <div className={styles["esg-score-heading"]}>
               <h2>ESG Score</h2>
             </div>
+            {/* one_pager.php:581-603 — the legend sits inside .chart-container,
+                beside the chart. borderWidth 2 = Chart.js's default arc border
+                (one_pager.php:673 sets none), so the white separators show. */}
             <div className={styles["chart-container"]}>
               <div className={styles.chart}>
-                <Doughnut environmental={round2(e)} social={round2(s)} governance={round2(g)} />
+                <Doughnut
+                  environmental={round2(e)}
+                  social={round2(s)}
+                  governance={round2(g)}
+                  borderWidth={2}
+                />
                 <div className={styles["content-chart"]}>
                   <span className={styles.heading}>ESG Score</span>
                   <span className={styles.score}>{numberFormat(overall.overall, 2)}</span>
                 </div>
               </div>
-            </div>
-            <div className={styles.legend}>
-              {LEGEND.map((item) => (
-                <div key={item.label} className={styles["legend-item"]}>
-                  <div className={styles.color} style={{ backgroundColor: item.color }} />
-                  <div>{item.label}</div>
-                </div>
-              ))}
+              <div className={styles.legend}>
+                {LEGEND.map((item) => (
+                  <div key={item.label} className={styles["legend-item"]}>
+                    <div className={styles.color} style={{ backgroundColor: item.color }} />
+                    <div>{item.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
             <h3 className={styles.subheading}>Environment KPI&apos;s</h3>
             <p>{kpiList(ai.keywords?.E)}</p>
