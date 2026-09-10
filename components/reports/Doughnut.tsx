@@ -1,9 +1,9 @@
 "use client";
 
-import { Chart as ChartJS, ArcElement, Tooltip, type ChartOptions } from "chart.js";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, type ChartOptions } from "chart.js";
 import { Doughnut as ReactDoughnut } from "react-chartjs-2";
 
-ChartJS.register(ArcElement, Tooltip);
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 // Environment / Social / Governance — esg-report.php's Chart.js doughnut
 // (esg.md §B4). `esg_template.html`'s own static markup pairs the same
@@ -22,17 +22,29 @@ type DoughnutProps = {
   environmental: number;
   social: number;
   governance: number;
+  /** Overrides for a different doughnut style (the BFSI detailed report's,
+   * report.php:270-280). Omit all three for the ESG default above. */
+  colors?: string[];
+  options?: ChartOptions<"doughnut">;
+  borderWidth?: number;
 };
 
-/** The ESG report's navy-panel doughnut. */
-export default function Doughnut({ environmental, social, governance }: DoughnutProps) {
+/** The ESG report's navy-panel doughnut (or, with overrides, another E/S/G doughnut). */
+export default function Doughnut({
+  environmental,
+  social,
+  governance,
+  colors = COLORS,
+  options = OPTIONS,
+  borderWidth = 0,
+}: DoughnutProps) {
   const data = {
     labels: ["Environment", "Social", "Governance"],
     datasets: [
       {
         data: [environmental, social, governance],
-        backgroundColor: COLORS,
-        borderWidth: 0,
+        backgroundColor: colors,
+        borderWidth,
       },
     ],
   };
@@ -40,7 +52,7 @@ export default function Doughnut({ environmental, social, governance }: Doughnut
   return (
     <ReactDoughnut
       data={data}
-      options={OPTIONS}
+      options={options}
       role="img"
       aria-label="ESG score breakdown by Environment, Social and Governance"
     />

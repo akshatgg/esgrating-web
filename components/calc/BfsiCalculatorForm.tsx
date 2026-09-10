@@ -88,7 +88,20 @@ function validate(form: FormState, file: File | null, options: BfsiOptions | nul
   return null;
 }
 
-export default function BfsiCalculatorForm() {
+type BfsiCalculatorFormProps = {
+  /** Defaults to the public `POST /api/bfsi/submissions`. The admin "New BFSI
+   * Assessment" page passes `/api/admin/bfsi/submissions`. */
+  endpoint?: string;
+  /** Admin mode (admin/calculator.php): called with the new submission id
+   * instead of showing the public thank-you card, and API errors stay inline
+   * with the form values kept ("re-fills values on error", bfsi.md §3). */
+  onCreated?: (id: string) => void;
+};
+
+export default function BfsiCalculatorForm({
+  endpoint = "/api/bfsi/submissions",
+  onCreated,
+}: BfsiCalculatorFormProps = {}) {
   const [options, setOptions] = useState<BfsiOptions | null>(null);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [optionsError, setOptionsError] = useState<string | null>(null);
@@ -168,10 +181,15 @@ export default function BfsiCalculatorForm() {
     body.append("report_file", file as File);
 
     try {
-      await apiUpload("/api/bfsi/submissions", body);
+      const res = await apiUpload<{ id?: string } | undefined>(endpoint, body);
+      if (onCreated) {
+        // Stay in "submitting" (button disabled) while the caller navigates away.
+        onCreated(res?.id ?? "");
+        return;
+      }
       setStatus("success");
     } catch (err) {
-      setStatus("error");
+      setStatus(onCreated ? "validation-error" : "error");
       setErrorMessage(err instanceof ApiError ? err.message : "Something went wrong.");
     }
   }

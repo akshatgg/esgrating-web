@@ -97,31 +97,41 @@ export type BfsiSubmission = {
   file_path: string;
   file_sha256: string;
   submit_ip: string;
-  status: "new" | "report_generated" | "sent";
+  /** Missing on some legacy rows — the dashboard shows `new` then. */
+  status?: "new" | "report_generated" | "sent";
   e_score?: number;
   s_score?: number;
   g_score?: number;
-  overall_score?: number;
-  grade?: Grade;
+  /** null for hand-added / imported rows without a score. */
+  overall_score?: number | null;
+  /** Free text for hand-added / imported rows (only A+…D in practice). */
+  grade?: string | null;
   ai_analysis?: BfsiAi;
   text_sha256?: string;
   text_source?: "text" | "ocr";
   text_truncated?: boolean;
   imported?: boolean;
+  // Background-job bookkeeping (esgratings-api app/core/jobs.py).
+  analysis_status?: AnalysisStatus;
+  analysis_error?: string | null;
+  analysis_started_at?: string | null;
+  sent_at?: string | null;
 };
+
+export type BfsiCategory = "E" | "S" | "G";
+
+/** One page-level scoring reason. Pre-page-scoring analyses stored plain
+ * strings instead (report.php:238), so readers must accept both shapes. */
+export type BfsiReason = { page: number; score: number | null; reason: string };
 
 /** `ai_analysis` — the return of `bfsi_analyze()` (bfsi.md §4c). */
 export type BfsiAi = {
   e_score: number;
   s_score: number;
   g_score: number;
-  keywords: { E: string[]; S: string[]; G: string[] };
-  negative_keywords: { E: string[]; S: string[]; G: string[] };
-  reasons: {
-    E: Array<{ page: number; score: number | null; reason: string }>;
-    S: Array<{ page: number; score: number | null; reason: string }>;
-    G: Array<{ page: number; score: number | null; reason: string }>;
-  };
+  keywords: Partial<Record<BfsiCategory, string[]>>;
+  negative_keywords: Partial<Record<BfsiCategory, string[]>>;
+  reasons: Partial<Record<BfsiCategory, Array<BfsiReason | string>>>;
   detected_sector: string;
   detected_industry: string;
   top_risks: string[];
@@ -144,4 +154,15 @@ export type BfsiOverall = {
   label: string;
   weights: { e: number; s: number; g: number };
   weightage_row: string;
+};
+
+/** `GET /api/admin/bfsi/submissions/{id}` (esgratings-api app/bfsi/router_admin.py). */
+export type BfsiDetail = {
+  submission: BfsiSubmission;
+  /** Recomputed from the stored E/S/G on every load (report.php:17); null until scored. */
+  overall: BfsiOverall | null;
+  recommendation: string | null;
+  /** The borrower's previous scored submission under the same CIN/GSTIN. */
+  previous: { overall: number | null; created_at: string | null } | null;
+  industry_label: string;
 };

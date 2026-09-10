@@ -10,6 +10,13 @@ export const ESG_PDF_OPTS = {
   pagebreak: { mode: ["avoid-all", "css", "legacy"] },
 } as const;
 
+/** BFSI detailed report + one-pager. report.php:282 and one_pager.php:677 call
+ * `html2pdf().from(el).save(name)` with no options at all (html2pdf's own
+ * defaults: US letter, inches, no margin); per the W7 decision the BFSI PDFs
+ * reuse the ESG options above instead — both sheets lay out inside its
+ * 750px-wide page. */
+export const BFSI_PDF_OPTS = ESG_PDF_OPTS;
+
 /** Renders `el` to a PDF `Blob` — for attaching to the "send report" upload,
  * without triggering a browser download. */
 export async function pdfBlob(
