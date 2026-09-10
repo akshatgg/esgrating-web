@@ -4,7 +4,6 @@ import {
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type FormEvent,
   type ReactNode,
   type RefObject,
@@ -14,10 +13,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowUpRight, ChevronDown, Globe, LogOut, Menu, Plus, Search, X } from "lucide-react";
 import clsx from "clsx";
-import pkg from "@/package.json";
 import { apiFetch, UNAUTHORIZED_EVENT } from "@/lib/api";
 import { ADMIN_NAV_GROUPS, ADMIN_PAGES, NEW_ASSESSMENTS, activeAdminHref } from "@/lib/admin-nav";
 import { adminLoginHref } from "@/lib/nav";
+import { useScrolled } from "@/lib/useScrolled";
 import { AccountAvatar } from "@/components/ui/Avatar";
 import { useDialog } from "@/components/ui/useDialog";
 import { useMenu } from "@/components/ui/useMenu";
@@ -30,15 +29,7 @@ import { FOCUS_RING } from "./styles";
 // server guard has confirmed the session. The signed-in identity appears only
 // inside the Profile menu (and as the avatar initial).
 
-const SCROLL_THRESHOLD = 8;
 const LG_QUERY = "(min-width: 1024px)";
-
-function subscribeScroll(onChange: () => void) {
-  window.addEventListener("scroll", onChange, { passive: true });
-  return () => window.removeEventListener("scroll", onChange);
-}
-const getScrolled = () => window.scrollY > SCROLL_THRESHOLD;
-const getServerScrolled = () => false;
 
 const MENU_ITEM =
   "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-ink/85 outline-none hover:bg-white/80 hover:text-calc-navy focus-visible:bg-white/80 focus-visible:text-calc-navy focus-visible:ring-2 focus-visible:ring-brand/60 disabled:opacity-60";
@@ -53,7 +44,7 @@ export default function AdminShell({ username, children }: AdminShellProps) {
   const router = useRouter();
   const active = activeAdminHref(pathname);
   const burgerRef = useRef<HTMLButtonElement>(null);
-  const scrolled = useSyncExternalStore(subscribeScroll, getScrolled, getServerScrolled);
+  const scrolled = useScrolled();
   const [loggingOut, setLoggingOut] = useState(false);
 
   // The drawer closes whenever the route changes.
@@ -292,7 +283,7 @@ function SidebarFooter({ onNavigate }: { onNavigate?: () => void }) {
         View website
         <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
       </Link>
-      <p className="mt-1 font-mono text-[11px] text-slate-400">v{pkg.version}</p>
+      <p className="mt-1 font-mono text-[11px] text-slate-400">v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
     </div>
   );
 }
@@ -385,11 +376,14 @@ function TopSearch({
   useEffect(() => {
     if (!shortcut) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
+      // Below md the top-bar search is display:none; leave the browser's own
+      // ⌘K / Ctrl+K alone there.
+      const input = inputRef.current;
+      if (!input || input.getClientRects().length === 0) return;
+      event.preventDefault();
+      input.focus();
+      input.select();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);

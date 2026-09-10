@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -8,17 +8,9 @@ import { Menu } from "lucide-react";
 import clsx from "clsx";
 import { NAV } from "@/content/site";
 import { isActivePath } from "@/lib/nav";
+import { useScrolled } from "@/lib/useScrolled";
 import AccountMenu, { useAdminSession } from "./AccountMenu";
 import MobileNav from "./MobileNav";
-
-const SCROLL_THRESHOLD = 8;
-
-function subscribeScroll(onChange: () => void) {
-  window.addEventListener("scroll", onChange, { passive: true });
-  return () => window.removeEventListener("scroll", onChange);
-}
-const getScrolled = () => window.scrollY > SCROLL_THRESHOLD;
-const getServerScrolled = () => false;
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -27,7 +19,7 @@ export default function Header() {
   const indicatorRef = useRef<HTMLSpanElement>(null);
   const placedRef = useRef(false);
   const pathname = usePathname();
-  const scrolled = useSyncExternalStore(subscribeScroll, getScrolled, getServerScrolled);
+  const scrolled = useScrolled();
   const session = useAdminSession();
 
   // Slide a navy highlight under the active link. Until it has been measured
