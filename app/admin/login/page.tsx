@@ -10,8 +10,15 @@ export const metadata: Metadata = {
 /** Already-logged-in visitors are bounced straight to the dashboard instead
  * of seeing the login form again. */
 export default async function AdminLoginPage() {
-  const res = await serverFetch("/api/auth/me");
-  if (res.ok) {
+  let alreadyAuthenticated = false;
+  try {
+    const res = await serverFetch("/api/auth/me");
+    alreadyAuthenticated = res.ok;
+  } catch {
+    // API unreachable — fall through to the login form instead of crashing;
+    // a user should still be able to attempt login.
+  }
+  if (alreadyAuthenticated) {
     redirect("/admin/esg");
   }
 

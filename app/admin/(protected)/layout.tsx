@@ -10,7 +10,14 @@ export default async function ProtectedAdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const res = await serverFetch("/api/auth/me");
+  let res: Response;
+  try {
+    res = await serverFetch("/api/auth/me");
+  } catch {
+    // API unreachable — treat the same as "not authenticated" rather than
+    // letting the network error crash the render.
+    redirect("/admin/login");
+  }
   if (!res.ok) {
     redirect("/admin/login");
   }
