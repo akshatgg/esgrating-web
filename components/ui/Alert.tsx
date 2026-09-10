@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CheckCircle2, AlertTriangle, Info } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Info, X } from "lucide-react";
 import clsx from "clsx";
 
 export type AlertVariant = "success" | "error" | "info";
@@ -20,9 +20,11 @@ type AlertProps = {
   variant?: AlertVariant;
   children: ReactNode;
   className?: string;
+  /** Shows a "Dismiss" button at the right edge. */
+  onDismiss?: () => void;
 };
 
-export default function Alert({ variant = "info", children, className }: AlertProps) {
+export default function Alert({ variant = "info", children, className, onDismiss }: AlertProps) {
   const Icon = VARIANT_ICON[variant];
   return (
     <div
@@ -34,7 +36,18 @@ export default function Alert({ variant = "info", children, className }: AlertPr
       )}
     >
       <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-      <span>{children}</span>
+      <span className={onDismiss ? "min-w-0 flex-1" : undefined}>{children}</span>
+      {onDismiss ? (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          title="Dismiss"
+          className="-my-1 -mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-current focus-visible:outline-none motion-safe:transition-colors"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -14,6 +14,9 @@ export type Column<T> = {
   /** Console tables: pin this column to the right edge while the table
    * scrolls sideways — for row actions on wide tables. */
   sticky?: boolean;
+  /** Console tables: let a long header wrap onto two lines instead of
+   * widening the column. */
+  wrapHeader?: boolean;
 };
 
 type DataTableProps<T> = {
@@ -81,7 +84,8 @@ export default function DataTable<T>({
                     key={column.id ?? column.key}
                     scope="col"
                     className={clsx(
-                      "h-10 border-b border-line text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-muted uppercase",
+                      "h-10 border-b border-line text-[11px] font-semibold tracking-[0.06em] text-muted uppercase",
+                      column.wrapHeader ? "py-1 leading-tight" : "whitespace-nowrap",
                       cellX,
                       column.sticky && STICKY_TH,
                       column.className,

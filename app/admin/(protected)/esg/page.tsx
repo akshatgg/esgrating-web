@@ -66,6 +66,11 @@ function parseSource(value: string | null): Source {
   return value === "calculator" || value === "rating" ? value : "all";
 }
 
+function parsePage(value: string | null): number {
+  const n = value && /^\d+$/.test(value) ? Number(value) : 1;
+  return Math.max(1, n);
+}
+
 /** Same labels as the calculator list's status column had. */
 function statusLabel(status: EsgListItem["status"]): string {
   if (status === "running") return "Analyzing…";
@@ -75,11 +80,22 @@ function statusLabel(status: EsgListItem["status"]): string {
   return "New";
 }
 
-function StatusCell({ row }: { row: EsgListItem }) {
+function RowStatusBadge({ row }: { row: EsgListItem }) {
   if (row.status === "rated") return <StatusBadge state="generated" label="Rated" />;
   // The combined feed already folds analysis_status into `status`.
   const state = submissionState({ status: row.status, analysis_status: row.status });
   return <StatusBadge state={state} label={statusLabel(row.status)} />;
+}
+
+/** Source over status in one cell (left-aligned in the table, right-aligned
+ * in the mobile cards' value column). */
+function StatusCell({ row }: { row: EsgListItem }) {
+  return (
+    <div className="flex flex-col items-end gap-1 md:items-start">
+      <SourceBadge source={row.source} />
+      <RowStatusBadge row={row} />
+    </div>
+  );
 }
 
 function reportHref(row: Pick<EsgListItem, "source" | "id">): string {
@@ -102,7 +118,7 @@ function countEntries(n: number): string {
   return `${NUM.format(n)} ${n === 1 ? "entry" : "entries"}`;
 }
 
-type Counts = { search: string; calculator: number; rating: number };
+type Counts = { calculator: number; rating: number };
 
 function EsgList() {
   const router = useRouter();
@@ -113,22 +129,20 @@ function EsgList() {
   const search = urlSearch.trim();
 
   // The box follows the URL when it changes from outside (the top-bar search,
-  // Back/Forward), but not while its own debounced value is catching up.
+  // Back/Forward), but not when the change is its own debounced write landing
+  // — by then the box may hold more typing, which must not be overwritten.
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [syncedUrlSearch, setSyncedUrlSearch] = useState(urlSearch);
+  const [pushedSearch, setPushedSearch] = useState<string | null>(null);
   if (urlSearch !== syncedUrlSearch) {
     setSyncedUrlSearch(urlSearch);
-    if (urlSearch.trim() !== searchInput.trim()) setSearchInput(urlSearch);
+    const own = pushedSearch !== null && urlSearch.trim() === pushedSearch;
+    if (!own && urlSearch.trim() !== searchInput.trim()) setSearchInput(urlSearch);
   }
 
-  // Back to page 1 whenever the filter or the search changes.
-  const [page, setPage] = useState(1);
-  const filterKey = `${source}|${search}`;
-  const [pageFilterKey, setPageFilterKey] = useState(filterKey);
-  if (filterKey !== pageFilterKey) {
-    setPageFilterKey(filterKey);
-    setPage(1);
-  }
+  // `?page=` too, so Back from a report and a reload land on the same page.
+  // Changing the filter or the search drops it (back to page 1).
+  const page = parsePage(params.get("page"));
 
   const [items, setItems] = useState<EsgListItem[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -160,11 +174,19 @@ function EsgList() {
     [params, pathname, router],
   );
 
+  const setPage = useCallback(
+    (next: number) => replaceParams({ page: next > 1 ? String(next) : null }),
+    [replaceParams],
+  );
+
   // Debounce the search box into `?search=` so every keystroke doesn't fire a request.
   useEffect(() => {
     const t = setTimeout(() => {
       const value = searchInput.trim();
-      if (value !== search) replaceParams({ search: value || null });
+      if (value !== search) {
+        setPushedSearch(value);
+        replaceParams({ search: value || null, page: null });
+      }
     }, 300);
     return () => clearTimeout(t);
   }, [searchInput, search, replaceParams]);
@@ -176,9 +198,10 @@ function EsgList() {
     fetchCombined(page, source, search)
       .then((res) => {
         if (cancelled) return;
-        // Deleting the last row of the last page: step back a page.
-        if (res.items.length === 0 && res.page > 1 && res.total > 0) {
-          setPage(Math.max(1, res.pages));
+        // Past the last page (a stale `?page=`, or deleting the last row of
+        // the last page): clamp to the last page.
+        if (res.items.length === 0 && res.page > 1) {
+          setPage(res.pages);
           return;
         }
         setItems(res.items);
@@ -194,14 +217,16 @@ function EsgList() {
     return () => {
       cancelled = true;
     };
-  }, [page, source, search, refreshToken]);
+  }, [page, source, search, refreshToken, setPage]);
 
-  // Per-filter counts for the chips, under the current search.
+  // Per-filter totals for the chips: fetched once, and again after an add,
+  // edit or delete (an import happens on its own page, so coming back
+  // remounts this one). Not per search, so typing doesn't cost two requests.
   useEffect(() => {
     let cancelled = false;
-    Promise.all([fetchCombined(1, "calculator", search), fetchCombined(1, "rating", search)])
+    Promise.all([fetchCombined(1, "calculator", ""), fetchCombined(1, "rating", "")])
       .then(([calculator, rating]) => {
-        if (!cancelled) setCounts({ search, calculator: calculator.total, rating: rating.total });
+        if (!cancelled) setCounts({ calculator: calculator.total, rating: rating.total });
       })
       .catch(() => {
         // Non-fatal: the chips just show no count.
@@ -209,7 +234,7 @@ function EsgList() {
     return () => {
       cancelled = true;
     };
-  }, [search, refreshToken]);
+  }, [refreshToken]);
 
   function reload() {
     setRefreshToken((n) => n + 1);
@@ -238,10 +263,9 @@ function EsgList() {
 
   const esg = stats.data?.esg;
   const ratings = stats.data?.ratings;
-  const liveCounts = counts && counts.search === search ? counts : null;
   const chipCount = (value: Source): number | null => {
-    if (!liveCounts) return null;
-    return value === "all" ? liveCounts.calculator + liveCounts.rating : liveCounts[value];
+    if (!counts) return null;
+    return value === "all" ? counts.calculator + counts.rating : counts[value];
   };
   const stale = items !== null && loadedKey !== requestKey;
 
@@ -249,7 +273,7 @@ function EsgList() {
     {
       key: "company",
       header: "Company",
-      className: "min-w-[13rem]",
+      className: "min-w-[11rem]",
       render: (row) => (
         <div className="min-w-0">
           <Link
@@ -272,20 +296,21 @@ function EsgList() {
     {
       key: "sector",
       header: "Sector",
-      className: "min-w-[10rem] text-ink/80",
+      className: "min-w-[8rem] text-ink/80",
       render: (row) => row.sector || "—",
     },
     {
       key: "rating",
       header: "ESG Rating",
-      className: "whitespace-nowrap font-semibold tabular-nums",
+      wrapHeader: true,
+      className: "font-semibold tabular-nums",
       render: (row) => (typeof row.rating === "number" ? row.rating.toFixed(1) : "—"),
     },
     { key: "grade", header: "Grade", render: (row) => <GradeChip grade={row.grade} /> },
     {
       key: "category",
       header: "Category",
-      className: "whitespace-nowrap",
+      className: "min-w-[5.5rem]",
       render: (row) => row.category || "—",
     },
     {
@@ -294,7 +319,6 @@ function EsgList() {
       className: "whitespace-nowrap text-ink/80",
       render: (row) => formatDmyFull(row.date),
     },
-    { key: "source", header: "Source", render: (row) => <SourceBadge source={row.source} /> },
     { key: "status", header: "Status", render: (row) => <StatusCell row={row} /> },
     {
       key: "id",
@@ -481,15 +505,18 @@ function EsgList() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search company, sector or grade…"
-            aria-label="Search submissions"
+            aria-label="Search ESG submissions and rated companies"
             className={clsx(INPUT, "pl-9")}
           />
         </div>
-        {/* p-1/-m-1 keeps the chips' focus ring clear of the scroll clip. */}
+        {/* p-1/-m-1 keeps the chips' focus ring clear of the scroll clip. Below
+            md the row can scroll, so its right edge fades out (a static mask)
+            to show there's more; the extra end padding lets the last chip
+            scroll clear of the fade. */}
         <div
           role="group"
           aria-label="Filter by source"
-          className="-m-1 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto p-1 [scrollbar-width:none] md:shrink-0 [&::-webkit-scrollbar]:hidden"
+          className="-m-1 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto p-1 [scrollbar-width:none] max-md:pr-8 max-md:[mask-image:linear-gradient(to_right,#000_calc(100%_-_2rem),transparent)] md:shrink-0 [&::-webkit-scrollbar]:hidden"
         >
           {FILTERS.map((filter) => {
             const active = source === filter.value;
@@ -499,7 +526,9 @@ function EsgList() {
                 key={filter.value}
                 type="button"
                 aria-pressed={active}
-                onClick={() => replaceParams({ source: filter.value === "all" ? null : filter.value })}
+                onClick={() =>
+                  replaceParams({ source: filter.value === "all" ? null : filter.value, page: null })
+                }
                 className={clsx(
                   "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium whitespace-nowrap ring-1 ring-inset motion-safe:transition-colors",
                   FOCUS_RING,
@@ -537,7 +566,11 @@ function EsgList() {
 
       {notice ? <Alert variant="success">{notice}</Alert> : null}
       {error ? <Alert variant="error">{error}</Alert> : null}
-      {pdf.error ? <Alert variant="error">{pdf.error}</Alert> : null}
+      {pdf.error ? (
+        <Alert variant="error" onDismiss={pdf.clearError}>
+          {pdf.error}
+        </Alert>
+      ) : null}
 
       {items === null ? (
         error ? null : <TableSkeleton />
