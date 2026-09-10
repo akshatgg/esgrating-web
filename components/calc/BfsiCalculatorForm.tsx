@@ -41,7 +41,13 @@ const INITIAL_FORM: FormState = {
   outstanding_loans: "",
 };
 
-type Status = "idle" | "submitting" | "success" | "error";
+// "error" is reserved for genuine API/server failures (a `detail` from a
+// failed fetch) and triggers the full-page "Go back" replacement that wipes
+// the form. Client-side pre-submit validation errors use "validation-error"
+// instead, which shows an inline Alert without touching `form`/`file` state
+// — mirroring EsgCalculatorForm's inline-error pattern — so a typo doesn't
+// cost the user their attached file.
+type Status = "idle" | "submitting" | "success" | "error" | "validation-error";
 
 // Validation order + messages ported verbatim from `bfsi_store_submission`
 // (bfsi.md §1c).
@@ -141,7 +147,7 @@ export default function BfsiCalculatorForm() {
 
     const validationError = validate(form, file, options);
     if (validationError) {
-      setStatus("error");
+      setStatus("validation-error");
       setErrorMessage(validationError);
       return;
     }
@@ -348,6 +354,12 @@ export default function BfsiCalculatorForm() {
             onChange={handleFileChange}
           />
         </div>
+
+        {status === "validation-error" && errorMessage ? (
+          <div className="col-span-full">
+            <Alert variant="error">{errorMessage}</Alert>
+          </div>
+        ) : null}
 
         <div className="col-span-full">
           <Button type="submit" variant="calcNavy" disabled={status === "submitting"}>

@@ -15,7 +15,7 @@ const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const MOBILE_RE = /^(\+91[\-\s]?)?[0]?(91)?[789]\d{9}$/;
 
 const MAX_FILE_MB = 5;
-const ACCEPT = ".pdf,.docx";
+const ACCEPT = ".pdf,.doc,.docx";
 
 const SUCCESS_MESSAGE = "Your ESG Rating will be sent to your registered email. Thank you!";
 
@@ -39,6 +39,8 @@ const INITIAL_FORM: FormState = {
 
 type Status = "idle" | "submitting" | "success" | "error";
 
+// Required-field messages below are inferred — no verbatim source in esg.md
+// §B1 (CF7's field config documents labels/placeholders, not JS error copy).
 function validate(form: FormState, file: File | null): string | null {
   if (!form.name.trim()) return "Please enter your name.";
   if (!EMAIL_RE.test(form.email.trim())) return "Please enter a valid email";
@@ -49,7 +51,7 @@ function validate(form: FormState, file: File | null): string | null {
 
   if (!file) return "Please upload your BRSR / Sustainability / Integrated Report.";
   const ext = file.name.split(".").pop()?.toLowerCase();
-  if (ext !== "pdf" && ext !== "docx") return "Only PDF or DOCX accepted.";
+  if (ext !== "pdf" && ext !== "doc" && ext !== "docx") return "Only PDF, DOC or DOCX accepted.";
   if (file.size > MAX_FILE_MB * 1024 * 1024) return `Report must be under ${MAX_FILE_MB} MB.`;
 
   return null;
@@ -118,7 +120,6 @@ export default function EsgCalculatorForm() {
           name="name"
           placeholder="Enter your name"
           required
-          maxLength={255}
           value={form.name}
           onChange={update("name")}
         />
@@ -171,7 +172,7 @@ export default function EsgCalculatorForm() {
             type="file"
             accept={ACCEPT}
             required
-            hint={`PDF or DOCX, max ${MAX_FILE_MB} MB.`}
+            hint={`PDF, DOC or DOCX, max ${MAX_FILE_MB} MB.`}
             onChange={handleFileChange}
           />
         </div>
