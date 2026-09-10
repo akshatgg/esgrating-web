@@ -418,6 +418,17 @@ body {
   }
 }
 
+/* PDF text alignment (html2pdf -> html2canvas 1.4.1). html2canvas finds each
+   font's baseline by setting a 1x1 GIF `<img>` inline next to a text span in the
+   cloned document (FontMetrics, SMALL_IMAGE). Tailwind preflight's
+   `img { display: block }` pushes that image onto its own line, so every text
+   run in a generated PDF was drawn too low: the BFSI grade badge's text slipped
+   out of its pill, onto the score above. Only html2canvas's probe image
+   matches this selector. */
+img[src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"] {
+  display: inline;
+}
+
 /* Superadmin console: the indeterminate bar on a running analysis
    (components/admin/AnalyzePanel.tsx). Reduced motion gets a still bar. */
 @keyframes adminIndeterminate {
