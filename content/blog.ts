@@ -8,6 +8,8 @@ export type Post = {
   title: string;
   date: string; // ISO date
   author: string;
+  /** Whether the author should be rendered with a "By " prefix. Defaults to true. */
+  authorPrefix?: boolean;
   image: string;
   keywords: string;
   body: Block[];
@@ -176,6 +178,7 @@ export const POSTS: Post[] = [
     date: "2025-05-05",
     author:
       "Divya, ESG Expert -CFC, SEBI Licensed ESG Ratings Provider | www.esgratings.co.in",
+    authorPrefix: false,
     image: "/images/blog/bb.webp",
     keywords: "bbbb",
     body: [

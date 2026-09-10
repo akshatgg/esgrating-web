@@ -47,7 +47,7 @@ export const AUTOMATED_RATING = {
       icon: "settings" as IconBoxKey,
       title: "Comprehensive Data Collection",
       description:
-        "We gather data from disclosures, sources, and reports, aligning with SEBI's BRSR framework.",
+        "We gather data from disclosures, sources, and reports, aligning with SEBI’s BRSR framework.",
     },
     {
       icon: "bank" as IconBoxKey,

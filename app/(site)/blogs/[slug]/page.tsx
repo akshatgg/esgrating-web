@@ -53,7 +53,9 @@ export default async function BlogPostPage({
               month: "long",
               year: "numeric",
             })}
-            {post.author ? ` · By ${post.author}` : null}
+            {post.author
+              ? ` · ${post.authorPrefix === false ? "" : "By "}${post.author}`
+              : null}
           </p>
         </div>
       </div>

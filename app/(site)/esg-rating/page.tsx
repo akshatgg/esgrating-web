@@ -47,7 +47,7 @@ export default function EsgRatingPage() {
                 className={`glass-surface card-lift reveal stagger-${i + 2} flex flex-col gap-2 rounded-2xl bg-white/10 p-5`}
               >
                 <CheckCircle2
-                  className="glass-check-icon h-6 w-6 rounded-full text-grade-a"
+                  className={`glass-check-icon glass-check-icon--${i + 1} h-6 w-6 rounded-full text-grade-a`}
                   aria-hidden="true"
                 />
                 <p className="text-sm text-white/90">{text}</p>

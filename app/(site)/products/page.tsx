@@ -94,7 +94,13 @@ export default function ProductsPage() {
         <div className="marquee-track">
           {[...PRODUCT_MARQUEE, ...PRODUCT_MARQUEE, ...PRODUCT_MARQUEE].map((src, i) => (
             <div key={i} className="flex w-48 shrink-0 items-center justify-center px-6">
-              <Image src={src} alt="" width={140} height={48} className="h-10 w-auto opacity-80" />
+              <Image
+                src={src}
+                alt={src.includes("indian-bank") ? "Indian Bank" : "Race"}
+                width={140}
+                height={48}
+                className="h-10 w-auto opacity-80"
+              />
             </div>
           ))}
         </div>

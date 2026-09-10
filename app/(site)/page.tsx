@@ -59,7 +59,13 @@ export default function Home() {
         <div className="marquee-track">
           {[...BRAND_MARQUEE, ...BRAND_MARQUEE].map((src, i) => (
             <div key={i} className="flex w-40 shrink-0 items-center justify-center px-6">
-              <Image src={src} alt="" width={120} height={48} className="h-10 w-auto opacity-70" />
+              <Image
+                src={src}
+                alt="Partner logo"
+                width={120}
+                height={48}
+                className="h-10 w-auto opacity-70"
+              />
             </div>
           ))}
         </div>

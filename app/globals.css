@@ -270,6 +270,17 @@ body {
   animation: ripple 3.6s ease-out infinite;
 }
 
+/* Stagger the check-icon ripple 1.2s apart so the three icons don't pulse in sync. */
+.glass-check-icon--1 {
+  animation-delay: 0s;
+}
+.glass-check-icon--2 {
+  animation-delay: 1.2s;
+}
+.glass-check-icon--3 {
+  animation-delay: 2.4s;
+}
+
 .stagger-1 {
   animation-delay: 80ms;
 }
