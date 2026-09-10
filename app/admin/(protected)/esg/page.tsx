@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Search, Trash2 } from "lucide-react";
 import type { EsgSubmission } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -36,13 +37,21 @@ function fetchSubmissions(page: number, search: string): Promise<ListResponse> {
   return apiFetch<ListResponse>(`/api/admin/esg/submissions?${params}`);
 }
 
-export default function EsgSubmissionsPage() {
+function EsgSubmissionsList() {
+  // The console's top-bar search lands here as `?search=…`; seed the box from
+  // it, and follow it if the admin searches again while already on this page.
+  const urlSearch = useSearchParams().get("search") ?? "";
+  const [syncedUrlSearch, setSyncedUrlSearch] = useState(urlSearch);
   const [items, setItems] = useState<EsgSubmission[] | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(0);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState(urlSearch);
+  const [search, setSearch] = useState(urlSearch.trim());
+  if (urlSearch !== syncedUrlSearch) {
+    setSyncedUrlSearch(urlSearch);
+    setSearchInput(urlSearch);
+  }
   const [error, setError] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<EsgSubmission | null>(null);
@@ -213,5 +222,13 @@ export default function EsgSubmissionsPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+export default function EsgSubmissionsPage() {
+  return (
+    <Suspense fallback={null}>
+      <EsgSubmissionsList />
+    </Suspense>
   );
 }

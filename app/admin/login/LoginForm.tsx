@@ -14,7 +14,9 @@ const REQUIRED_MESSAGE = "Please fill all fields!";
 
 type Status = "idle" | "submitting" | "error";
 
-export default function LoginForm() {
+/** `next` is the already-sanitised post-login target (lib/nav.ts safeNextPath);
+ * it defaults to the Dashboard. */
+export default function LoginForm({ next = "/admin" }: { next?: string }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -40,7 +42,7 @@ export default function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username.trim(), password }),
       });
-      router.replace("/admin/esg");
+      router.replace(next);
     } catch (err) {
       setStatus("error");
       setError(err instanceof ApiError ? err.message : "Something went wrong.");

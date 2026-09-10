@@ -2,15 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { serverFetch } from "@/lib/server-api";
+import { safeNextPath } from "@/lib/nav";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
   title: "Superadmin login",
 };
 
-/** Already-logged-in visitors are bounced straight to the dashboard instead
- * of seeing the login form again. */
-export default async function AdminLoginPage() {
+/** Already-logged-in visitors are bounced straight to the Dashboard (or the
+ * page in a same-origin `?next=`) instead of seeing the login form again. */
+export default async function AdminLoginPage({ searchParams }: PageProps<"/admin/login">) {
+  const next = safeNextPath((await searchParams).next);
   let alreadyAuthenticated = false;
   try {
     const res = await serverFetch("/api/auth/me");
@@ -20,7 +22,7 @@ export default async function AdminLoginPage() {
     // a user should still be able to attempt login.
   }
   if (alreadyAuthenticated) {
-    redirect("/admin/esg");
+    redirect(next);
   }
 
   return (
@@ -31,7 +33,7 @@ export default async function AdminLoginPage() {
       />
 
       <div className="reveal relative flex w-full flex-col items-center gap-6">
-        <LoginForm />
+        <LoginForm next={next} />
 
         <Link
           href="/"

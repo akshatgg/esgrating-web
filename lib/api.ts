@@ -36,8 +36,17 @@ async function readDetail(res: Response): Promise<string | undefined> {
   return undefined;
 }
 
+/** Fired on `window` for every 401. The admin console shell listens for it
+ * and sends the admin to `/admin/login?next=<current page>` (the session
+ * cookie has expired). Nothing listens on the login page or the public site,
+ * where a 401 is just an error to show. */
+export const UNAUTHORIZED_EVENT = "esg:unauthorized";
+
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    }
     const detail = await readDetail(res);
     throw new ApiError(detail ?? "Request failed", res.status);
   }
