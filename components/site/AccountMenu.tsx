@@ -168,7 +168,7 @@ export default function AccountMenu({ session }: { session: AdminSession }) {
   return (
     <div
       ref={wrapRef}
-      className="relative"
+      className="relative hidden lg:block"
       onBlur={(event) => {
         // Tab past the last item (or anywhere outside) closes the menu.
         if (open && !wrapRef.current?.contains(event.relatedTarget as Node | null)) setOpen(false);
