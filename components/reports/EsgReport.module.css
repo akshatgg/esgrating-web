@@ -1,0 +1,292 @@
+/* Faithful port of esg_score_calculator-master/templates/esg_template.html's
+   <style> block (esg.md §A8) — class names kept identical to the source so
+   this stays diffable against the original. */
+
+.report-container {
+  width: 736px;
+  max-width: 736px;
+  margin: 20px auto;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  color: #1c1c1c;
+}
+
+/* Header */
+.esg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #002d6c;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px 8px 0 0;
+}
+
+.esg-header img {
+  height: 60px;
+  margin-right: 20px;
+}
+
+.esg-header h1 {
+  font-size: 24px;
+  margin: 0;
+  color: white !important;
+}
+
+/* Main Report Section */
+.esg-card .report {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+}
+.esg-content {
+  display: flex;
+}
+
+.left-section {
+  width: 60%;
+}
+
+.esg-content .esg-right-section {
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 30px;
+  color: white;
+  background: #002d6c;
+  border-radius: 4px;
+  margin-left: 20px;
+  gap: 9px;
+}
+.esg-score-heading {
+  text-align: center;
+}
+
+.right-section {
+  width: 35%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.table-group {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+}
+
+.table-group td {
+  padding: 8px 5px;
+  font-size: 16px;
+}
+
+.table-group th {
+  padding: 8px 5px;
+  font-size: 16px;
+  text-align: left;
+}
+
+.table-group .item_bold {
+  font-weight: bold;
+}
+
+.badge {
+  background-color: #002d6c;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 154px !important;
+  height: 154px !important;
+}
+:global(.html2pdf__overlay) .rating {
+  margin-top: -35px;
+}
+.badge .rating {
+  font-size: 86px;
+  line-height: 1 !important;
+}
+.esg-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: center;
+  margin-bottom: 10px;
+}
+.report .left-section {
+  width: 90%;
+}
+.report .right-section {
+  width: 40%;
+}
+.esg-summary table {
+  width: 80%;
+}
+.esg-title img {
+  width: auto;
+  height: 70px;
+}
+/* Card Section */
+.esg-card {
+  background-color: #ffffff;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  border: 1px solid #d2d2d2;
+  border-top: none;
+}
+.esg-card .main-heading {
+  font-size: 24px;
+  text-align: center;
+  display: inline-block;
+  width: 100%;
+  padding: 5px;
+}
+
+.esg-card h1 {
+  font-size: 20px;
+  padding: 5px;
+}
+
+.details {
+  padding: 10px;
+}
+
+.table-heading {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #ddd;
+}
+
+.table-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+/* ESG Score Section */
+.esg-score-heading {
+  margin-bottom: 15px;
+}
+
+.chart-container {
+  width: 100%;
+  border-radius: 8px;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.subheading {
+  font-size: 18px;
+  text-align: left;
+  margin: 0px;
+  color: white;
+}
+
+.center-text {
+  text-align: center;
+}
+
+.report-container tr {
+  border: none !important;
+  background: white;
+}
+
+.report-container td {
+  background: white;
+}
+
+.report-container tr > td:first-child {
+  color: #646464;
+  width: 138px;
+}
+
+.report-container h2 {
+  color: white;
+}
+
+.esg-right-section p {
+  text-align: left;
+  color: #cdcdcd;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  margin-bottom: 12px;
+}
+/* Footer Section */
+.esg-footer {
+  margin-top: 20px;
+}
+
+.esg-footer table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  font-size: 12px;
+}
+
+.esg-footer table th,
+.esg-footer table td {
+  border: 1px solid #ddd !important;
+  padding: 8px;
+  text-align: center;
+}
+
+.esg-footer table th {
+  background-color: #002d6c;
+  color: white;
+}
+
+.red_color {
+  color: #ab3737;
+  font-weight: bold;
+}
+
+.green_color {
+  color: #76ab37;
+  font-weight: bold;
+}
+.esg-heading {
+  font-size: 24px;
+}
+
+.chart-container canvas {
+  width: 100%;
+}
+.chart-container {
+  display: flex;
+  justify-content: center;
+}
+.chart-container .chart {
+  position: relative;
+  width: 180px;
+}
+.chart-container .content-chart {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.chart-container .content-chart .heading {
+  display: block;
+  font-size: 11px;
+  color: #dddddd;
+}
+.chart-container .content-chart .score {
+  display: block;
+  font-size: 18px;
+  color: #ffffff;
+}
+.esg-scale {
+  display: flex;
+  justify-content: center;
+}

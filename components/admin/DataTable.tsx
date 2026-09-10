@@ -6,6 +6,10 @@ export type Column<T> = {
   header: string;
   render?: (row: T) => ReactNode;
   className?: string;
+  /** Overrides `key` as the React key for this column, for the (rare) case
+   * where two columns render different things off the same field — e.g. a
+   * submission's "Score" and "Grade" columns both come from `final`. */
+  id?: string;
 };
 
 type DataTableProps<T> = {
@@ -39,7 +43,11 @@ export default function DataTable<T>({ columns, rows, empty, rowKey }: DataTable
           <thead>
             <tr className="border-b border-line bg-bg-soft text-xs font-semibold uppercase tracking-wide text-muted">
               {columns.map((column) => (
-                <th key={column.key} scope="col" className={clsx("px-4 py-3", column.className)}>
+                <th
+                  key={column.id ?? column.key}
+                  scope="col"
+                  className={clsx("px-4 py-3", column.className)}
+                >
                   {column.header}
                 </th>
               ))}
@@ -52,7 +60,7 @@ export default function DataTable<T>({ columns, rows, empty, rowKey }: DataTable
                 className="border-b border-line last:border-0 hover:bg-bg-soft"
               >
                 {columns.map((column) => (
-                  <td key={column.key} className={clsx("px-4 py-3 text-ink", column.className)}>
+                  <td key={column.id ?? column.key} className={clsx("px-4 py-3 text-ink", column.className)}>
                     {cell(row, column)}
                   </td>
                 ))}
@@ -70,7 +78,7 @@ export default function DataTable<T>({ columns, rows, empty, rowKey }: DataTable
           >
             {columns.map((column) => (
               <div
-                key={column.key}
+                key={column.id ?? column.key}
                 className="flex items-start justify-between gap-3 border-b border-line py-2 text-sm last:border-0"
               >
                 <span className="shrink-0 font-medium text-muted">{column.header}</span>
