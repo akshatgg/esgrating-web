@@ -17,6 +17,7 @@ import {
 
 export const metadata: Metadata = {
   title: "Products",
+  alternates: { canonical: "/products" },
 };
 
 function IconBoxGrid({

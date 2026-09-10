@@ -6,6 +6,7 @@ import { JOB } from "@/content/careers";
 
 export const metadata: Metadata = {
   title: "Automation Developer",
+  alternates: { canonical: "/careers/automation-developer" },
 };
 
 export default function AutomationDeveloperPage() {

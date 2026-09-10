@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import Section from "@/components/site/Section";
@@ -12,6 +13,11 @@ import {
   RECENT_ARTICLES_HEADING,
 } from "@/content/home";
 import { postsByDateDesc } from "@/content/blog";
+
+// Title and description come from the root layout's defaults.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default function Home() {
   const recentPosts = postsByDateDesc().slice(0, 3);

@@ -7,6 +7,7 @@ import { PDF_BUTTONS, CONTACT_LINE, CONTACT_EMAIL } from "@/content/policy";
 
 export const metadata: Metadata = {
   title: "Policies",
+  alternates: { canonical: "/policy" },
 };
 
 export default function PolicyPage() {

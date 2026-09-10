@@ -8,6 +8,7 @@ import { postsByDateDesc } from "@/content/blog";
 
 export const metadata: Metadata = {
   title: "Blogs",
+  alternates: { canonical: "/blogs" },
 };
 
 export default function BlogsPage() {

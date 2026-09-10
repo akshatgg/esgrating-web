@@ -19,6 +19,7 @@ export async function generateMetadata({
   return {
     title: post.title,
     description: post.body.find((b) => b.type === "p")?.text,
+    alternates: { canonical: `/blogs/${post.slug}` },
   };
 }
 

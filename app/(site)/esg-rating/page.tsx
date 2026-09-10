@@ -18,6 +18,7 @@ import {
 
 export const metadata: Metadata = {
   title: "ESG Rating",
+  alternates: { canonical: "/esg-rating" },
 };
 
 export default function EsgRatingPage() {

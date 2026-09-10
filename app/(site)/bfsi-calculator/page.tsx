@@ -5,6 +5,7 @@ import BfsiCalculatorForm from "@/components/calc/BfsiCalculatorForm";
 
 export const metadata: Metadata = {
   title: "BFSI Sector Calculator",
+  alternates: { canonical: "/bfsi-calculator" },
 };
 
 export default function BfsiCalculatorPage() {

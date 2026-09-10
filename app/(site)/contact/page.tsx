@@ -8,6 +8,7 @@ import { CONTACT } from "@/content/site";
 
 export const metadata: Metadata = {
   title: "Contact Us",
+  alternates: { canonical: "/contact" },
 };
 
 const CARDS = [

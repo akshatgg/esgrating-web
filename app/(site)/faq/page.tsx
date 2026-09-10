@@ -5,6 +5,7 @@ import { HEADING, FAQ_ITEMS } from "@/content/faq";
 
 export const metadata: Metadata = {
   title: "FAQ",
+  alternates: { canonical: "/faq" },
 };
 
 export default function FaqPage() {

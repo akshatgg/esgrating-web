@@ -5,6 +5,7 @@ import EsgCalculatorForm from "@/components/calc/EsgCalculatorForm";
 
 export const metadata: Metadata = {
   title: "All Other Sector Calculator",
+  alternates: { canonical: "/esg-rating-calculator" },
 };
 
 export default function EsgRatingCalculatorPage() {
