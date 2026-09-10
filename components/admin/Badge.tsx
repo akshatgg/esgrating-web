@@ -109,3 +109,19 @@ export function KindBadge({ kind }: { kind: "esg" | "bfsi" }) {
     </span>
   );
 }
+
+/** "Calculator" (blue) / "Rating list" (slate) tag for the merged ESG list. */
+export function SourceBadge({ source }: { source: "calculator" | "rating" }) {
+  return (
+    <span
+      className={clsx(
+        "inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset",
+        source === "calculator"
+          ? "bg-brand/8 text-brand ring-brand/20"
+          : "bg-slate-100 text-slate-700 ring-slate-200",
+      )}
+    >
+      {source === "calculator" ? "Calculator" : "Rating list"}
+    </span>
+  );
+}

@@ -240,6 +240,26 @@ export type RatingRow = {
   category: string;
 };
 
+/** One row of the merged ESG list — `GET /api/admin/esg/combined` items and
+ * `GET /api/admin/ratings/{s_no}` (esgratings-api app/esg/combined.py
+ * `_calc_item` / `rating_item`). */
+export type EsgListItem = {
+  source: "calculator" | "rating";
+  /** Submission ObjectId (calculator) or `s_no` as a string (rating). */
+  id: string;
+  company: string | null;
+  sector: string | null;
+  /** Composite score rounded to 1 dp (calculator; null until analysed) or `esg_rating`. */
+  rating: number | null;
+  grade: string | null;
+  category: string | null;
+  /** `YYYY-MM-DD` (calculator `created_at` in UTC, or the stored `date_of_rating`). */
+  date: string;
+  status: "new" | "running" | "failed" | "sent" | "report_generated" | "rated";
+  contact: { name: string | null; email: string | null } | null;
+  report_year: string | null;
+};
+
 /** `contact_messages` document (esgratings-api app/contact/router.py). */
 export type ContactMessage = {
   _id: string;

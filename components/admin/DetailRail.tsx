@@ -9,22 +9,26 @@ export type DetailRow = { label: string; value: ReactNode; icon: LucideIcon };
 
 /** The detail pages' right rail (docs/sdd/web-task-admin-redesign-brief.md
  * "Detail pages"): a titled card of icon + label + value rows, the status
- * badge in its header, and the original upload as a secondary button. */
+ * badge in its header, and the original upload as a secondary button (or,
+ * for records with no upload, a `footer` of actions). */
 export default function DetailRail({
   title,
   badge,
   rows,
   fileHref,
   fileCaption,
+  footer,
   className,
 }: {
   title: string;
   badge?: ReactNode;
   rows: DetailRow[];
   /** `…/file` endpoint for the original upload. */
-  fileHref: string;
+  fileHref?: string;
   /** Optional label above the download button (BFSI's "Uploaded Report"). */
   fileCaption?: string;
+  /** Replaces the download button — e.g. a rated company's Edit / Delete. */
+  footer?: ReactNode;
   className?: string;
 }) {
   return (
@@ -50,13 +54,17 @@ export default function DetailRail({
           </div>
         ))}
       </dl>
-      <div className="border-t border-line px-5 py-4">
-        {fileCaption ? <p className="mb-2 text-xs text-muted">{fileCaption}</p> : null}
-        <a href={fileHref} className={buttonClasses("adminSecondary", "md", "w-full")}>
-          <Download className="h-4 w-4" aria-hidden="true" />
-          Download original file
-        </a>
-      </div>
+      {footer ? (
+        <div className="border-t border-line px-5 py-4">{footer}</div>
+      ) : fileHref ? (
+        <div className="border-t border-line px-5 py-4">
+          {fileCaption ? <p className="mb-2 text-xs text-muted">{fileCaption}</p> : null}
+          <a href={fileHref} className={buttonClasses("adminSecondary", "md", "w-full")}>
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Download original file
+          </a>
+        </div>
+      ) : null}
     </aside>
   );
 }

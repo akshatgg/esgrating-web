@@ -67,3 +67,27 @@ export function prevFy(fy: string): string {
   const end = Number(m[2]) - 1;
   return `${start}-${end}`;
 }
+
+// --- Indian FY (1 Apr – 31 Mar) of a date, read in UTC -----------------------
+// Ports of the BFSI one-pager's `bfsi_fy_*()` helpers (one_pager.php), shared by
+// BfsiOnePager and the ESG Rating List one-pager (EsgRatingOnePager).
+
+/** `bfsi_fy_bounds()` — the Indian FY (1 Apr – 31 Mar) containing `d` (now if null). */
+export function fyBounds(d: Date | null): [number, number] {
+  const x = d ?? new Date();
+  const y = x.getUTCFullYear();
+  const start = x.getUTCMonth() + 1 >= 4 ? y : y - 1;
+  return [start, start + 1];
+}
+
+/** `bfsi_fy_full()` — "2024-2025". */
+export function fyFull(d: Date | null): string {
+  const [a, b] = fyBounds(d);
+  return `${a}-${b}`;
+}
+
+/** `bfsi_fy_short()` — "FY 24-25", optionally shifted by whole years. */
+export function fyShortOf(d: Date | null, offsetYears = 0): string {
+  const [a, b] = fyBounds(d);
+  return `FY ${String(a + offsetYears).slice(-2)}-${String(b + offsetYears).slice(-2)}`;
+}

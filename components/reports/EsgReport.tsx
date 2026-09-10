@@ -8,7 +8,11 @@ import styles from "@/components/reports/EsgReport.module.css";
 /** Same-origin copy of the template's logo (byte-identical to the
  * esgratings.co.in WhatsApp-Image-2024-10-09 upload), so html2canvas can draw
  * it into the PDF under `useCORS: false`. */
-const LOGO_SRC = "/brand/logo.jpg";
+export const ESG_REPORT_LOGO = "/brand/logo.jpg";
+const LOGO_SRC = ESG_REPORT_LOGO;
+
+/** esg-report.php's download name for the calculator report PDF. */
+export const ESG_REPORT_PDF_FILENAME = "esg_report.pdf";
 
 type YearScoreOk = Extract<YearScore, { latest_year: string }>;
 

@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import type { BfsiDetail, BfsiOverall, BfsiSubmission } from "@/lib/types";
-import { bfsiGrade } from "@/lib/grades";
+import { bfsiGrade, fyFull, fyShortOf } from "@/lib/grades";
 import { asArray, capitalizeFirst, formatUtc, numberFormat, parseApiDate } from "@/lib/format";
 import Doughnut from "@/components/reports/Doughnut";
 import { BFSI_REPORT_LOGO } from "@/components/reports/BfsiDetailedReport";
@@ -8,26 +8,7 @@ import styles from "@/components/reports/BfsiOnePager.module.css";
 
 // All dates are read in UTC: one_pager.php formats `created_at` via PHP
 // `date()` with no timezone configured (UTC) and `UTCDateTime->toDateTime()`.
-
-/** `bfsi_fy_bounds()` — the Indian FY (1 Apr – 31 Mar) containing `d` (now if null). */
-function fyBounds(d: Date | null): [number, number] {
-  const x = d ?? new Date();
-  const y = x.getUTCFullYear();
-  const start = x.getUTCMonth() + 1 >= 4 ? y : y - 1;
-  return [start, start + 1];
-}
-
-/** `bfsi_fy_full()` — "2024-2025". */
-function fyFull(d: Date | null): string {
-  const [a, b] = fyBounds(d);
-  return `${a}-${b}`;
-}
-
-/** `bfsi_fy_short()` — "FY 24-25", optionally shifted by whole years. */
-function fyShortOf(d: Date | null, offsetYears = 0): string {
-  const [a, b] = fyBounds(d);
-  return `FY ${String(a + offsetYears).slice(-2)}-${String(b + offsetYears).slice(-2)}`;
-}
+// The FY helpers (`bfsi_fy_*()`) live in lib/grades.ts.
 
 /** `bfsi_kpi_list()` — trimmed, non-empty, first-letter-capitalised, ", "-joined, or "—". */
 function kpiList(keywords: string[] | string | undefined): string {

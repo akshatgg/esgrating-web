@@ -42,6 +42,7 @@ import {
 } from "@/components/admin/Badge";
 import { CARD, FOCUS_RING, FOCUS_RING_INSET } from "@/components/admin/styles";
 import { useAdminStats } from "@/components/admin/useAdminStats";
+import { RATED_COMPANIES_HREF } from "@/lib/admin-nav";
 import Sparkline from "./Sparkline";
 import SubmissionsChart, { BFSI_COLOR, ESG_COLOR } from "./SubmissionsChart";
 import PipelineDonut, { type Segment } from "./PipelineDonut";
@@ -176,11 +177,12 @@ function DashboardBody({ stats }: { stats: AdminStats }) {
           }
         />
         <StatCard
-          label="ESG Rating List"
+          label="Rated companies"
           value={stats.ratings.total}
           icon={BarChart3}
           tone="violet"
           sub={`avg rating ${stats.ratings.average.toFixed(1)}`}
+          href={RATED_COMPANIES_HREF}
         />
       </section>
 
@@ -211,6 +213,7 @@ function StatCard({
   icon,
   tone,
   chart,
+  href,
 }: {
   label: string;
   value: number;
@@ -218,9 +221,11 @@ function StatCard({
   icon: LucideIcon;
   tone: Tone;
   chart?: ReactNode;
+  /** Makes the whole card a link to the matching list. */
+  href?: string;
 }) {
-  return (
-    <div className={clsx(CARD, "flex flex-col p-5")}>
+  const body = (
+    <>
       <div className="flex items-start justify-between gap-3">
         <p className={clsx(CARD_LABEL, "pt-1")}>{label}</p>
         <IconTile icon={icon} tone={tone} />
@@ -232,7 +237,21 @@ function StatCard({
         <p className="text-[13px] text-muted">{sub}</p>
         {chart}
       </div>
-    </div>
+    </>
+  );
+  return href ? (
+    <Link
+      href={href}
+      className={clsx(
+        CARD,
+        "flex flex-col p-5 hover:border-field motion-safe:transition-colors",
+        FOCUS_RING,
+      )}
+    >
+      {body}
+    </Link>
+  ) : (
+    <div className={clsx(CARD, "flex flex-col p-5")}>{body}</div>
   );
 }
 

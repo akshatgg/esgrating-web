@@ -70,6 +70,28 @@ export function formatDmy(value: string | null | undefined): string {
   return `${m[3]}-${m[2]}-${m[1].slice(2)}`;
 }
 
+/** "10-06-2026" (DD-MM-YYYY) for a stored `YYYY-MM-DD` date — the merged ESG
+ * list and the rated-company page. An em dash when empty; anything that isn't
+ * a plain date is shown as stored. */
+export function formatDmyFull(value: string | null | undefined): string {
+  if (!value) return "—";
+  const m = YMD_RE.exec(value.trim());
+  if (!m) return value;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+/** Lower-case, ASCII, hyphen-separated — for download filenames
+ * ("Tata Steel Ltd." → "tata-steel-ltd"). */
+export function slugify(value: string | null | undefined): string {
+  const slug = (value ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "company";
+}
+
 /** Last 6 characters of a Mongo ObjectId, for compact ID columns — pair with
  * the full id in a `title` attribute (esg.md §B3's "ID (last 6)"). */
 export function shortId(id: string): string {

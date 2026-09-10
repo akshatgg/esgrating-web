@@ -2,7 +2,7 @@
 
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
-import type { RatingRow } from "@/lib/types";
+import type { EsgListItem, RatingRow } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { GRADE_LABELS } from "@/lib/grades";
 import Modal from "@/components/ui/Modal";
@@ -37,6 +37,19 @@ function initialForm(row: RatingRow | null): RatingForm {
     date_of_rating: row?.date_of_rating ?? "",
     grade: row?.grade ?? "",
     category: row?.category ?? "",
+  };
+}
+
+/** A merged-list / `GET /api/admin/ratings/{s_no}` item as the modal's row. */
+export function ratingRowFromItem(item: EsgListItem): RatingRow {
+  return {
+    s_no: Number(item.id),
+    company_name: item.company ?? "",
+    sector: item.sector ?? "",
+    esg_rating: item.rating ?? 0,
+    date_of_rating: item.date,
+    grade: item.grade ?? "",
+    category: item.category ?? "",
   };
 }
 

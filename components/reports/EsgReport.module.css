@@ -290,3 +290,20 @@
   display: flex;
   justify-content: center;
 }
+
+/* --- ESG Rating List one-pager (EsgRatingOnePager.tsx): additions only, the
+   template's rules above are unchanged. --- */
+.report-container .pillar-note > td:first-child {
+  width: auto;
+  padding-top: 0;
+  color: #646464;
+  font-size: 12px;
+  font-style: italic;
+}
+.report-container .overall-row > td {
+  font-weight: bold;
+  border-top: 1px solid #d2d2d2;
+}
+.report-container .overall-row > td:first-child {
+  color: #1c1c1c;
+}

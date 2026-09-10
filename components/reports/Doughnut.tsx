@@ -58,3 +58,37 @@ export default function Doughnut({
     />
   );
 }
+
+/** Single-value gauge in the same doughnut style (cutout 80%, legend hidden)
+ * — the ESG Rating List one-pager, which has one rating and no E/S/G split.
+ * `value` (0–100) is the filled share in `color`; the rest is a faint track. */
+export function GaugeDoughnut({
+  value,
+  color,
+  trackColor = "rgba(255, 255, 255, 0.14)",
+}: {
+  value: number;
+  color: string;
+  trackColor?: string;
+}) {
+  const filled = Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
+  const data = {
+    labels: ["Rating", "Remaining"],
+    datasets: [
+      {
+        data: [filled, 100 - filled],
+        backgroundColor: [color, trackColor],
+        borderWidth: 0,
+      },
+    ],
+  };
+
+  return (
+    <ReactDoughnut
+      data={data}
+      options={OPTIONS}
+      role="img"
+      aria-label={`ESG rating ${filled} out of 100`}
+    />
+  );
+}
