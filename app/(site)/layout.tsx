@@ -10,7 +10,7 @@ export default function SiteLayout({
   return (
     <>
       <Header />
-      <main className="pt-[76px] lg:pt-[101px]">{children}</main>
+      <main className="pt-20 md:pt-[88px] lg:pt-24">{children}</main>
       <Footer />
       <WhatsAppButton />
     </>
