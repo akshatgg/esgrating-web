@@ -340,3 +340,99 @@ body {
     animation: none;
   }
 }
+
+/* Glass surfaces — frosted translucent chrome shared by the public site and
+   the admin dashboard. `.glass-pill` is the floating oval navbar;
+   `.glass-panel` is a denser variant for sheets, dropdowns and cards.
+   The frost lives on a ::before layer (not the element itself) so the element
+   is not a backdrop root: nested glass (a dropdown inside the pill) still
+   blurs the page behind it, and mix-blend logos blend with the real backdrop.
+   Kept in @layer components so Tailwind utilities (fixed, rounded-*, …) win. */
+@layer components {
+  .glass-pill,
+  .glass-panel {
+    position: relative;
+    isolation: isolate;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow:
+      0 0 0 1px rgba(11, 28, 57, 0.05),
+      0 8px 30px rgba(11, 28, 57, 0.12);
+  }
+
+  .glass-pill::before,
+  .glass-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background-color: rgba(255, 255, 255, 0.65);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    backdrop-filter: blur(24px) saturate(1.5);
+  }
+
+  .glass-pill {
+    border-radius: 9999px;
+    transition: box-shadow 0.3s ease;
+  }
+
+  .glass-pill::before {
+    transition: background-color 0.3s ease;
+  }
+
+  /* Page scrolled: firmer glass so the pill reads over busy content. */
+  .glass-pill[data-scrolled="true"] {
+    box-shadow:
+      0 0 0 1px rgba(11, 28, 57, 0.07),
+      0 12px 36px rgba(11, 28, 57, 0.16);
+  }
+
+  .glass-pill[data-scrolled="true"]::before {
+    background-color: rgba(255, 255, 255, 0.8);
+  }
+
+  .glass-panel {
+    border-radius: 1.5rem;
+  }
+
+  .glass-panel::before {
+    background-color: rgba(255, 255, 255, 0.9);
+  }
+
+  /* Pop-in for glass dropdowns/menus. */
+  .glass-pop {
+    transform-origin: top right;
+    animation: glassPop 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+}
+
+@keyframes glassPop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-pill::before,
+  .glass-pill[data-scrolled="true"]::before,
+  .glass-panel::before {
+    background-color: rgba(255, 255, 255, 0.95);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-pill,
+  .glass-pill::before {
+    transition: none;
+  }
+
+  .glass-pop {
+    animation: none;
+  }
+}
