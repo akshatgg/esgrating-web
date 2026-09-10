@@ -1,10 +1,16 @@
-import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from "react";
 import clsx from "clsx";
 
 type BaseProps = {
   label: string;
   name: string;
   error?: string;
+  hint?: string;
 };
 
 type InputProps = BaseProps &
@@ -17,14 +23,20 @@ type TextareaProps = BaseProps &
     as: "textarea";
   };
 
-export type FieldProps = InputProps | TextareaProps;
+type SelectProps = BaseProps &
+  Omit<SelectHTMLAttributes<HTMLSelectElement>, "name" | "id"> & {
+    as: "select";
+    children: ReactNode;
+  };
+
+export type FieldProps = InputProps | TextareaProps | SelectProps;
 
 const FIELD_CLASSES =
   "w-full rounded-[10px] border border-field bg-white px-4 py-3 text-ink placeholder:text-muted focus:border-calc-blue focus:outline-none focus:ring-2 focus:ring-calc-blue/20";
 
 /** A labeled form field matching the calculator card style (border-field, label). */
 export default function Field(props: FieldProps) {
-  const { label, name, error, className, ...rest } = props;
+  const { label, name, error, hint, className, ...rest } = props;
   const id = `field-${name}`;
 
   return (
@@ -42,6 +54,15 @@ export default function Field(props: FieldProps) {
           className={clsx(FIELD_CLASSES, "min-h-32 resize-y", className)}
           {...(rest as TextareaHTMLAttributes<HTMLTextAreaElement>)}
         />
+      ) : props.as === "select" ? (
+        <select
+          id={id}
+          name={name}
+          className={clsx(FIELD_CLASSES, className)}
+          {...(rest as SelectHTMLAttributes<HTMLSelectElement>)}
+        >
+          {props.children}
+        </select>
       ) : (
         <input
           id={id}
@@ -50,6 +71,7 @@ export default function Field(props: FieldProps) {
           {...(rest as InputHTMLAttributes<HTMLInputElement>)}
         />
       )}
+      {hint ? <p className="text-xs text-muted">{hint}</p> : null}
       {error ? <p className="text-sm text-grade-d">{error}</p> : null}
     </div>
   );
