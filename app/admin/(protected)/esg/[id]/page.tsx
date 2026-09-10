@@ -29,9 +29,9 @@ import ReportPreview from "@/components/admin/ReportPreview";
 import { DetailSkeleton } from "@/components/admin/Skeleton";
 import { StatusBadge, submissionState } from "@/components/admin/Badge";
 import { CARD } from "@/components/admin/styles";
-import EsgReport from "@/components/reports/EsgReport";
+import EsgReport, { ESG_REPORT_PDF_FILENAME } from "@/components/reports/EsgReport";
 
-const PDF_FILENAME = "esg_report.pdf";
+const PDF_FILENAME = ESG_REPORT_PDF_FILENAME;
 
 const LIST_CRUMBS = [
   { label: "Dashboard", href: "/admin" },
@@ -148,6 +148,7 @@ export default function EsgSubmissionDetailPage() {
 
   const running = sub.analysis_status === "running";
   const final = sub.final;
+  const showReport = !running && !!final;
 
   return (
     <div className="flex flex-col gap-5">
@@ -157,24 +158,22 @@ export default function EsgSubmissionDetailPage() {
         description={`FY ${sub.report_year} report from ${sub.name}`}
       />
 
-      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <DetailRail
-          className="xl:sticky xl:top-24 xl:col-start-2 xl:row-start-1"
-          title="Submission details"
-          badge={<StatusBadge state={submissionState(sub)} label={statusLabel(sub)} />}
-          fileHref={`/api/admin/esg/submissions/${id}/file`}
-          rows={[
-            { label: "Name", value: sub.name, icon: User },
-            { label: "Email", value: sub.email, icon: Mail },
-            { label: "Designation", value: sub.designation, icon: BadgeCheck },
-            { label: "Company", value: sub.company_name, icon: Building2 },
-            { label: "Mobile", value: sub.mobile_number, icon: Phone },
-            { label: "FY", value: sub.report_year, icon: CalendarRange },
-            { label: "Submitted", value: formatDate(sub.created_at), icon: Clock },
-          ]}
-        />
-
-        <div className="flex min-w-0 flex-col gap-5 xl:col-start-1 xl:row-start-1">
+      {/* With a report showing, two columns only from 2xl: the 736–750px sheet
+          needs the width, so below that the rail stacks under the report. */}
+      <div
+        className={clsx(
+          "grid grid-cols-1 items-start gap-5",
+          showReport
+            ? "2xl:grid-cols-[minmax(0,1fr)_340px]"
+            : "xl:grid-cols-[minmax(0,1fr)_340px]",
+        )}
+      >
+        <div
+          className={clsx(
+            "flex min-w-0 flex-col gap-5",
+            showReport ? "2xl:col-start-1 2xl:row-start-1" : "xl:col-start-1 xl:row-start-1",
+          )}
+        >
           {actionError ? <Alert variant="error">{actionError}</Alert> : null}
 
           {running || !final ? (
@@ -231,6 +230,26 @@ export default function EsgSubmissionDetailPage() {
             </>
           )}
         </div>
+
+        <DetailRail
+          className={
+            showReport
+              ? "2xl:sticky 2xl:top-24 2xl:col-start-2 2xl:row-start-1"
+              : "xl:sticky xl:top-24 xl:col-start-2 xl:row-start-1"
+          }
+          title="Submission details"
+          badge={<StatusBadge state={submissionState(sub)} label={statusLabel(sub)} />}
+          fileHref={`/api/admin/esg/submissions/${id}/file`}
+          rows={[
+            { label: "Name", value: sub.name, icon: User },
+            { label: "Email", value: sub.email, icon: Mail },
+            { label: "Designation", value: sub.designation, icon: BadgeCheck },
+            { label: "Company", value: sub.company_name, icon: Building2 },
+            { label: "Mobile", value: sub.mobile_number, icon: Phone },
+            { label: "FY", value: sub.report_year, icon: CalendarRange },
+            { label: "Submitted", value: formatDate(sub.created_at), icon: Clock },
+          ]}
+        />
       </div>
     </div>
   );

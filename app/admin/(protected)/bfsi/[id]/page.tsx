@@ -165,38 +165,22 @@ export default function BfsiSubmissionDetailPage() {
         description={[industry_label, sub.sub_sector].filter(Boolean).join(", ")}
       />
 
-      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        {/* report.php's "Borrower & Loan Details" card — its 12 pairs, with the
-            status as the header badge and the upload as the footer button. */}
-        <DetailRail
-          className="xl:sticky xl:top-24 xl:col-start-2 xl:row-start-1"
-          title="Borrower & Loan Details"
-          badge={<StatusBadge state={submissionState(sub)} label={sub.status ?? "new"} />}
-          fileHref={`/api/admin/bfsi/submissions/${id}/file`}
-          fileCaption="Uploaded Report"
-          rows={[
-            { label: "Borrower", value: sub.borrower_name, icon: User },
-            { label: "CIN / GSTIN", value: sub.cin_gstin, icon: Hash },
-            { label: "Industry", value: industry_label, icon: Factory },
-            { label: "Sub-sector", value: sub.sub_sector, icon: Layers },
-            {
-              label: "Loan Amount",
-              value: `₹${numberFormat(sub.loan_amount)}`,
-              icon: IndianRupee,
-            },
-            {
-              label: "Outstanding Loans",
-              value: `₹${numberFormat(sub.outstanding_loans)}`,
-              icon: Wallet,
-            },
-            { label: "Loan Purpose", value: sub.loan_purpose, icon: Target },
-            { label: "Loan Type", value: sub.loan_type, icon: Tag },
-            { label: "Contact Email", value: sub.contact_email, icon: Mail },
-            { label: "Submitted", value: formatUtc(sub.created_at, "Y-m-d H:i"), icon: Clock },
-          ]}
-        />
-
-        <div className="flex min-w-0 flex-col gap-5 xl:col-start-1 xl:row-start-1">
+      {/* With a report showing, two columns only from 2xl: the 736–750px sheet
+          needs the width, so below that the rail stacks under the report. */}
+      <div
+        className={clsx(
+          "grid grid-cols-1 items-start gap-5",
+          showReport
+            ? "2xl:grid-cols-[minmax(0,1fr)_340px]"
+            : "xl:grid-cols-[minmax(0,1fr)_340px]",
+        )}
+      >
+        <div
+          className={clsx(
+            "flex min-w-0 flex-col gap-5",
+            showReport ? "2xl:col-start-1 2xl:row-start-1" : "xl:col-start-1 xl:row-start-1",
+          )}
+        >
           {actionError ? <Alert variant="error">{actionError}</Alert> : null}
 
           {!showReport || !ai || !overall ? (
@@ -288,6 +272,40 @@ export default function BfsiSubmissionDetailPage() {
             </>
           )}
         </div>
+
+        {/* report.php's "Borrower & Loan Details" card — its 12 pairs, with the
+            status as the header badge and the upload as the footer button. */}
+        <DetailRail
+          className={
+            showReport
+              ? "2xl:sticky 2xl:top-24 2xl:col-start-2 2xl:row-start-1"
+              : "xl:sticky xl:top-24 xl:col-start-2 xl:row-start-1"
+          }
+          title="Borrower & Loan Details"
+          badge={<StatusBadge state={submissionState(sub)} label={sub.status ?? "new"} />}
+          fileHref={`/api/admin/bfsi/submissions/${id}/file`}
+          fileCaption="Uploaded Report"
+          rows={[
+            { label: "Borrower", value: sub.borrower_name, icon: User },
+            { label: "CIN / GSTIN", value: sub.cin_gstin, icon: Hash },
+            { label: "Industry", value: industry_label, icon: Factory },
+            { label: "Sub-sector", value: sub.sub_sector, icon: Layers },
+            {
+              label: "Loan Amount",
+              value: `₹${numberFormat(sub.loan_amount)}`,
+              icon: IndianRupee,
+            },
+            {
+              label: "Outstanding Loans",
+              value: `₹${numberFormat(sub.outstanding_loans)}`,
+              icon: Wallet,
+            },
+            { label: "Loan Purpose", value: sub.loan_purpose, icon: Target },
+            { label: "Loan Type", value: sub.loan_type, icon: Tag },
+            { label: "Contact Email", value: sub.contact_email, icon: Mail },
+            { label: "Submitted", value: formatUtc(sub.created_at, "Y-m-d H:i"), icon: Clock },
+          ]}
+        />
       </div>
     </div>
   );
