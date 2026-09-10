@@ -2,6 +2,7 @@
 
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Field from "@/components/ui/Field";
@@ -47,9 +48,19 @@ export default function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <h1 className="mb-6 text-2xl font-semibold text-ink">Superadmin login</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+    <Card className="w-full max-w-md p-6 sm:p-9" lift={false}>
+      <div className="mb-8 flex flex-col items-center gap-4 text-center">
+        <Image
+          src="/brand/logo.jpg"
+          alt="ESG Ratings"
+          width={96}
+          height={55}
+          priority
+          className="h-auto w-24"
+        />
+        <h1 className="text-2xl font-semibold text-ink">Superadmin login</h1>
+      </div>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
         <Field
           label="Username"
           name="username"
