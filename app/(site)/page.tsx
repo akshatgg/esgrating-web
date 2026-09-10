@@ -1,6 +1,6 @@
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 bg-bg-soft px-6 text-center">
+    <div className="flex min-h-[calc(100vh-76px)] flex-col items-center justify-center gap-6 bg-bg-soft px-6 py-16 text-center lg:min-h-[calc(100vh-101px)]">
       <span className="reveal rounded-full bg-navy px-4 py-1.5 text-sm font-medium text-white">
         SEBI Registered
       </span>
@@ -18,6 +18,6 @@ export default function Home() {
       >
         Explore ESG Ratings
       </a>
-    </main>
+    </div>
   );
 }
