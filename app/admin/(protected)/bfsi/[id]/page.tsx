@@ -31,7 +31,7 @@ import PageHeader from "@/components/admin/PageHeader";
 import DetailRail from "@/components/admin/DetailRail";
 import ReportPreview from "@/components/admin/ReportPreview";
 import { DetailSkeleton } from "@/components/admin/Skeleton";
-import { StatusBadge, submissionState } from "@/components/admin/Badge";
+import { StatusBadge, submissionState, submissionStatusLabel } from "@/components/admin/Badge";
 import { CARD, FOCUS_RING } from "@/components/admin/styles";
 import BfsiDetailedReport from "@/components/reports/BfsiDetailedReport";
 import BfsiOnePager from "@/components/reports/BfsiOnePager";
@@ -163,7 +163,7 @@ export default function BfsiSubmissionDetailPage() {
         crumbs={[...LIST_CRUMBS, { label: sub.borrower_name }]}
         title={sub.borrower_name}
         description={[industry_label, sub.sub_sector].filter(Boolean).join(", ")}
-        badge={<StatusBadge state={submissionState(sub)} label={sub.status ?? "new"} />}
+        badge={<StatusBadge state={submissionState(sub)} label={submissionStatusLabel(sub)} />}
       />
 
       {/* With a report showing, two columns only from 2xl: the 736–750px sheet
@@ -283,7 +283,7 @@ export default function BfsiSubmissionDetailPage() {
               : "xl:sticky xl:top-24 xl:col-start-2 xl:row-start-1"
           }
           title="Borrower & Loan Details"
-          badge={<StatusBadge state={submissionState(sub)} label={sub.status ?? "new"} />}
+          badge={<StatusBadge state={submissionState(sub)} label={submissionStatusLabel(sub)} />}
           fileHref={`/api/admin/bfsi/submissions/${id}/file`}
           fileCaption="Uploaded Report"
           rows={[

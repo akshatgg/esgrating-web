@@ -29,7 +29,13 @@ import StatStrip from "@/components/admin/StatStrip";
 import EmptyState from "@/components/admin/EmptyState";
 import ListFooter from "@/components/admin/ListFooter";
 import { TableSkeleton } from "@/components/admin/Skeleton";
-import { GradeChip, SourceBadge, StatusBadge, submissionState } from "@/components/admin/Badge";
+import {
+  GradeChip,
+  SUBMISSION_STATE_LABELS,
+  SourceBadge,
+  StatusBadge,
+  submissionState,
+} from "@/components/admin/Badge";
 import {
   CARD,
   FOCUS_RING,
@@ -71,20 +77,11 @@ function parsePage(value: string | null): number {
   return Math.max(1, n);
 }
 
-/** Same labels as the calculator list's status column had. */
-function statusLabel(status: EsgListItem["status"]): string {
-  if (status === "running") return "Analyzing…";
-  if (status === "failed") return "Failed";
-  if (status === "report_generated") return "Report generated";
-  if (status === "sent") return "Sent";
-  return "New";
-}
-
 function RowStatusBadge({ row }: { row: EsgListItem }) {
   if (row.status === "rated") return <StatusBadge state="generated" label="Rated" />;
   // The combined feed already folds analysis_status into `status`.
   const state = submissionState({ status: row.status, analysis_status: row.status });
-  return <StatusBadge state={state} label={statusLabel(row.status)} />;
+  return <StatusBadge state={state} label={SUBMISSION_STATE_LABELS[state]} />;
 }
 
 /** Source over status in one cell (left-aligned in the table, right-aligned

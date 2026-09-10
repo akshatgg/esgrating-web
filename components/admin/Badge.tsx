@@ -21,6 +21,23 @@ export function submissionState(s: {
   return "new";
 }
 
+/** Human label per stage — the calculator list's status column wording. */
+export const SUBMISSION_STATE_LABELS: Record<SubmissionState, string> = {
+  new: "New",
+  running: "Analyzing…",
+  generated: "Report generated",
+  sent: "Sent",
+  failed: "Failed",
+};
+
+/** `submissionState` as its human label (ESG and BFSI detail headers). */
+export function submissionStatusLabel(s: {
+  status?: string | null;
+  analysis_status?: string | null;
+}): string {
+  return SUBMISSION_STATE_LABELS[submissionState(s)];
+}
+
 /** Stage colours, shared with the dashboard's pipeline donut so a stage reads
  * the same everywhere. */
 export const STATE_COLORS: Record<SubmissionState, string> = {

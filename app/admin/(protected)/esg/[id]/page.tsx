@@ -27,7 +27,7 @@ import PageHeader from "@/components/admin/PageHeader";
 import DetailRail from "@/components/admin/DetailRail";
 import ReportPreview from "@/components/admin/ReportPreview";
 import { DetailSkeleton } from "@/components/admin/Skeleton";
-import { StatusBadge, submissionState } from "@/components/admin/Badge";
+import { StatusBadge, submissionState, submissionStatusLabel } from "@/components/admin/Badge";
 import { CARD } from "@/components/admin/styles";
 import EsgReport, { ESG_REPORT_PDF_FILENAME } from "@/components/reports/EsgReport";
 
@@ -37,14 +37,6 @@ const LIST_CRUMBS = [
   { label: "Dashboard", href: "/admin" },
   { label: "ESG Submissions", href: "/admin/esg" },
 ];
-
-function statusLabel(sub: EsgSubmission): string {
-  if (sub.analysis_status === "running") return "Analyzing…";
-  if (sub.analysis_status === "failed") return "Failed";
-  if (sub.status === "sent") return "Sent";
-  if (sub.status === "report_generated") return "Report generated";
-  return "New";
-}
 
 /** Pure network call — see the matching note on the list page's
  * `fetchSubmissions`; only the effect's `.then/.catch` sets state. */
@@ -156,7 +148,7 @@ export default function EsgSubmissionDetailPage() {
         crumbs={[...LIST_CRUMBS, { label: sub.company_name }]}
         title={sub.company_name}
         description={`FY ${sub.report_year} report from ${sub.name}`}
-        badge={<StatusBadge state={submissionState(sub)} label={statusLabel(sub)} />}
+        badge={<StatusBadge state={submissionState(sub)} label={submissionStatusLabel(sub)} />}
       />
 
       {/* With a report showing, two columns only from 2xl: the 736–750px sheet
@@ -239,7 +231,7 @@ export default function EsgSubmissionDetailPage() {
               : "xl:sticky xl:top-24 xl:col-start-2 xl:row-start-1"
           }
           title="Submission details"
-          badge={<StatusBadge state={submissionState(sub)} label={statusLabel(sub)} />}
+          badge={<StatusBadge state={submissionState(sub)} label={submissionStatusLabel(sub)} />}
           fileHref={`/api/admin/esg/submissions/${id}/file`}
           rows={[
             { label: "Name", value: sub.name, icon: User },
