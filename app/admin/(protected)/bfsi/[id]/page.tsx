@@ -163,6 +163,7 @@ export default function BfsiSubmissionDetailPage() {
         crumbs={[...LIST_CRUMBS, { label: sub.borrower_name }]}
         title={sub.borrower_name}
         description={[industry_label, sub.sub_sector].filter(Boolean).join(", ")}
+        badge={<StatusBadge state={submissionState(sub)} label={sub.status ?? "new"} />}
       />
 
       {/* With a report showing, two columns only from 2xl: the 736–750px sheet

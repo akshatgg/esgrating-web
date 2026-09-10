@@ -12,8 +12,11 @@ export default function PageHeader({
   description,
   crumbs,
   actions,
+  badge,
 }: {
   title: string;
+  /** A status badge beside the title. */
+  badge?: ReactNode;
   description?: ReactNode;
   crumbs?: Crumb[];
   actions?: ReactNode;
@@ -48,7 +51,14 @@ export default function PageHeader({
             </ol>
           </nav>
         ) : null}
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+        {badge ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+            {badge}
+          </div>
+        ) : (
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+        )}
         {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}

@@ -122,6 +122,7 @@ export default function RatedCompanyPage() {
         crumbs={[...LIST_CRUMBS, { label: company }]}
         title={company}
         description="Rated company on the ESG Rating List"
+        badge={<StatusBadge state="generated" label="Rated" />}
       />
 
       {/* Two columns only from 2xl: below that the 736px one-pager would be

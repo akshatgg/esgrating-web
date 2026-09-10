@@ -156,6 +156,7 @@ export default function EsgSubmissionDetailPage() {
         crumbs={[...LIST_CRUMBS, { label: sub.company_name }]}
         title={sub.company_name}
         description={`FY ${sub.report_year} report from ${sub.name}`}
+        badge={<StatusBadge state={submissionState(sub)} label={statusLabel(sub)} />}
       />
 
       {/* With a report showing, two columns only from 2xl: the 736–750px sheet
