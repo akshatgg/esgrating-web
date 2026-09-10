@@ -7,6 +7,68 @@ export function formatDate(iso: string): string {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
+// --- Superadmin console helpers (all API timestamps go through parseApiDate) ---
+
+const DAY_MONTH = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" });
+const DAY_MONTH_UTC = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  timeZone: "UTC",
+});
+const DATE_TIME = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** "04 Sept" for an API timestamp, in the viewer's time zone. */
+export function formatDayMonth(value: string | null | undefined): string {
+  const d = parseApiDate(value);
+  return d ? DAY_MONTH.format(d) : "";
+}
+
+/** "04 Sept" for a `YYYY-MM-DD` day bucket (the stats API buckets in UTC). */
+export function formatDayKey(key: string): string {
+  const d = new Date(`${key}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? key : DAY_MONTH_UTC.format(d);
+}
+
+/** "10 Sept 2026, 02:05 pm" for an API timestamp, in the viewer's time zone. */
+export function formatDateTime(value: string | null | undefined): string {
+  const d = parseApiDate(value);
+  return d ? DATE_TIME.format(d) : (value ?? "");
+}
+
+/** "just now" / "5m ago" / "3h ago" / "2d ago", then "04 Sept" after a week.
+ * `now` is passed in (the stats payload's `generated_at`) so rendering stays pure. */
+export function relativeTime(value: string | null | undefined, now: Date): string {
+  const d = parseApiDate(value);
+  if (!d) return "";
+  const seconds = Math.round((now.getTime() - d.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return DAY_MONTH.format(d);
+}
+
+const YMD_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** PHP `date('d-m-y', strtotime($date))` for the ESG Rating List's stored
+ * `YYYY-MM-DD` dates ("10-06-26"); 'N/A' when empty (dashboard/index.php:744).
+ * A value that isn't a plain date is shown as stored. */
+export function formatDmy(value: string | null | undefined): string {
+  if (!value) return "N/A";
+  const m = YMD_RE.exec(value.trim());
+  if (!m) return value;
+  return `${m[3]}-${m[2]}-${m[1].slice(2)}`;
+}
+
 /** Last 6 characters of a Mongo ObjectId, for compact ID columns — pair with
  * the full id in a `title` attribute (esg.md §B3's "ID (last 6)"). */
 export function shortId(id: string): string {

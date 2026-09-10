@@ -1,5 +1,11 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import Dashboard from "@/components/admin/dashboard/Dashboard";
 
-export default function AdminIndexPage() {
-  redirect("/admin/esg");
+export const metadata: Metadata = {
+  title: "Dashboard",
+};
+
+/** `/admin` — the superadmin Dashboard (whole-site summary from `/api/admin/stats`). */
+export default function AdminDashboardPage() {
+  return <Dashboard />;
 }

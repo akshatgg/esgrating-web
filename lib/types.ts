@@ -166,3 +166,87 @@ export type BfsiDetail = {
   previous: { overall: number | null; created_at: string | null } | null;
   industry_label: string;
 };
+
+// --- Superadmin console ---------------------------------------------------------
+
+/** Paged admin list response (`{items, total, page, pages}`). */
+export type Paged<T> = { items: T[]; total: number; page: number; pages: number };
+
+/** Per-collection pipeline counts — every doc counted once, a running/failed
+ * analysis taking priority over `status` (esgratings-api app/dashboard/router.py). */
+export type StatusCounts = {
+  total: number;
+  new: number;
+  running: number;
+  report_generated: number;
+  sent: number;
+  failed: number;
+  /** report_generated + sent */
+  reports_generated: number;
+};
+
+export type DailyCount = { date: string; esg: number; bfsi: number };
+
+export type RecentSubmission = {
+  id: string;
+  title: string | null;
+  subtitle: string | null;
+  created_at: string | null;
+  status: string | null;
+  analysis_status: string | null;
+  score: number | null;
+  grade: string | null;
+};
+
+export type RecentMessage = {
+  id: string;
+  title: string | null;
+  subtitle: string | null;
+  created_at: string | null;
+  preview: string;
+};
+
+export type AttentionItem = {
+  kind: "esg" | "bfsi";
+  id: string;
+  title: string | null;
+  reason: string;
+  detail: string | null;
+  created_at: string | null;
+};
+
+/** `GET /api/admin/stats` (esgratings-api app/dashboard/router.py). */
+export type AdminStats = {
+  generated_at: string;
+  esg: StatusCounts;
+  bfsi: StatusCounts;
+  ratings: { total: number; average: number; by_grade: Record<Grade, number> };
+  messages: { total: number; last_7_days: number };
+  /** 30 UTC days, oldest first. */
+  daily: DailyCount[];
+  recent: { esg: RecentSubmission[]; bfsi: RecentSubmission[]; messages: RecentMessage[] };
+  attention: AttentionItem[];
+};
+
+/** One `esg_ratings` row as the admin list returns it (esgratings-api app/ratings). */
+export type RatingRow = {
+  s_no: number;
+  company_name: string;
+  sector: string;
+  esg_rating: number;
+  /** Stored `YYYY-MM-DD` (unparseable imports are kept as-is). */
+  date_of_rating: string;
+  grade: string;
+  category: string;
+};
+
+/** `contact_messages` document (esgratings-api app/contact/router.py). */
+export type ContactMessage = {
+  _id: string;
+  name: string;
+  email: string;
+  number: string;
+  message: string;
+  created_at: string;
+  submit_ip?: string;
+};
