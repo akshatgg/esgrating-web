@@ -62,7 +62,12 @@ export default function SendReportButton({
 
   return (
     <>
-      <Button variant="outline" disabled={disabled} onClick={() => setOpen(true)}>
+      <Button
+        variant="adminSecondary"
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+        title={disabled ? "No contact email on this submission" : undefined}
+      >
         <Send className="h-4 w-4" aria-hidden="true" />
         Send report
       </Button>
@@ -77,20 +82,24 @@ export default function SendReportButton({
             </p>
           )}
 
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             {status === "success" ? (
-              <Button variant="calcBlue" onClick={close}>
+              <Button variant="adminPrimary" onClick={close}>
                 Done
               </Button>
             ) : (
               <>
-                <Button variant="outline" onClick={close} disabled={status === "sending"}>
+                <Button variant="adminSecondary" onClick={close} disabled={status === "sending"}>
                   Cancel
                 </Button>
-                <Button variant="calcBlue" onClick={handleConfirm} disabled={status === "sending"}>
+                <Button
+                  variant="adminPrimary"
+                  onClick={handleConfirm}
+                  disabled={status === "sending"}
+                >
                   {status === "sending" ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
                       Sending…
                     </>
                   ) : status === "error" ? (

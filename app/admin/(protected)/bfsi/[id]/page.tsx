@@ -1,20 +1,45 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { Download, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  Clock,
+  Download,
+  Factory,
+  Hash,
+  IndianRupee,
+  Layers,
+  Mail,
+  RefreshCw,
+  ScrollText,
+  Tag,
+  Target,
+  User,
+  Wallet,
+} from "lucide-react";
+import clsx from "clsx";
 import type { BfsiDetail } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { formatUtc, numberFormat } from "@/lib/format";
 import { BFSI_PDF_OPTS, downloadPdf, pdfBlob } from "@/lib/pdf";
-import Card from "@/components/ui/Card";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import AnalyzePanel from "@/components/admin/AnalyzePanel";
 import SendReportButton from "@/components/admin/SendReportButton";
+import PageHeader from "@/components/admin/PageHeader";
+import DetailRail from "@/components/admin/DetailRail";
+import ReportPreview from "@/components/admin/ReportPreview";
+import { DetailSkeleton } from "@/components/admin/Skeleton";
+import { StatusBadge, submissionState } from "@/components/admin/Badge";
+import { CARD, FOCUS_RING } from "@/components/admin/styles";
 import BfsiDetailedReport from "@/components/reports/BfsiDetailedReport";
 import BfsiOnePager from "@/components/reports/BfsiOnePager";
+
+const LIST_CRUMBS = [
+  { label: "Dashboard", href: "/admin" },
+  { label: "BFSI Submissions", href: "/admin/bfsi" },
+];
 
 /** Pure network call — only the effect's `.then/.catch` sets state. */
 function fetchDetail(id: string): Promise<BfsiDetail> {
@@ -111,11 +136,20 @@ export default function BfsiSubmissionDetailPage() {
   }
 
   if (!detail && !loadError) {
-    return <div className="px-6 py-12 text-center text-sm text-muted">Loading…</div>;
+    return <DetailSkeleton />;
   }
 
   if (loadError || !detail) {
-    return <Alert variant="error">{loadError ?? "Submission not found."}</Alert>;
+    return (
+      <div className="flex flex-col gap-5">
+        <PageHeader crumbs={[...LIST_CRUMBS, { label: "Submission" }]} title="BFSI submission" />
+        <Alert variant="error">{loadError ?? "Submission not found."}</Alert>
+        <Button variant="adminSecondary" href="/admin/bfsi" className="self-start">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Submissions
+        </Button>
+      </div>
+    );
   }
 
   const { submission: sub, overall, recommendation, previous, industry_label } = detail;
@@ -123,120 +157,138 @@ export default function BfsiSubmissionDetailPage() {
   const running = sub.analysis_status === "running";
   const showReport = !running && !!ai && !!overall;
 
-  // report.php's "Borrower & Loan Details" card — 12 pairs.
-  const pairs: Array<[string, ReactNode]> = [
-    ["Borrower", sub.borrower_name],
-    ["CIN / GSTIN", sub.cin_gstin],
-    ["Industry", industry_label],
-    ["Sub-sector", sub.sub_sector],
-    ["Loan Amount", `₹${numberFormat(sub.loan_amount)}`],
-    ["Outstanding Loans", `₹${numberFormat(sub.outstanding_loans)}`],
-    ["Loan Purpose", sub.loan_purpose],
-    ["Loan Type", sub.loan_type],
-    ["Contact Email", sub.contact_email],
-    ["Submitted", formatUtc(sub.created_at, "Y-m-d H:i")],
-    ["Status", sub.status ?? ""],
-    [
-      "Uploaded Report",
-      <a
-        key="file"
-        href={`/api/admin/bfsi/submissions/${id}/file`}
-        className="text-calc-blue hover:underline"
-      >
-        Download original file
-      </a>,
-    ],
-  ];
-
   return (
-    <div className="flex flex-col gap-6">
-      <Link href="/admin/bfsi" className="text-sm font-medium text-calc-blue hover:underline">
-        ← Submissions
-      </Link>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        crumbs={[...LIST_CRUMBS, { label: sub.borrower_name }]}
+        title={sub.borrower_name}
+        description={[industry_label, sub.sub_sector].filter(Boolean).join(", ")}
+      />
 
-      <Card lift={false}>
-        <h2 className="mb-4 text-lg font-semibold text-ink">Borrower &amp; Loan Details</h2>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-          {pairs.map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-xs text-[#5c6b82]">{label}</dt>
-              <dd className="break-words text-sm font-bold text-ink">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </Card>
-
-      {actionError ? <Alert variant="error">{actionError}</Alert> : null}
-
-      {!showReport || !ai || !overall ? (
-        <AnalyzePanel
-          variant="bfsi"
-          label="Generating BFSI ESG Report"
-          status={running ? "running" : sub.analysis_status === "failed" ? "failed" : "idle"}
-          error={sub.analysis_error}
-          startedAt={sub.analysis_started_at}
-          onStart={handleAnalyze}
-          onPoll={reload}
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        {/* report.php's "Borrower & Loan Details" card — its 12 pairs, with the
+            status as the header badge and the upload as the footer button. */}
+        <DetailRail
+          className="xl:sticky xl:top-24 xl:col-start-2 xl:row-start-1"
+          title="Borrower & Loan Details"
+          badge={<StatusBadge state={submissionState(sub)} label={sub.status ?? "new"} />}
+          fileHref={`/api/admin/bfsi/submissions/${id}/file`}
+          fileCaption="Uploaded Report"
+          rows={[
+            { label: "Borrower", value: sub.borrower_name, icon: User },
+            { label: "CIN / GSTIN", value: sub.cin_gstin, icon: Hash },
+            { label: "Industry", value: industry_label, icon: Factory },
+            { label: "Sub-sector", value: sub.sub_sector, icon: Layers },
+            {
+              label: "Loan Amount",
+              value: `₹${numberFormat(sub.loan_amount)}`,
+              icon: IndianRupee,
+            },
+            {
+              label: "Outstanding Loans",
+              value: `₹${numberFormat(sub.outstanding_loans)}`,
+              icon: Wallet,
+            },
+            { label: "Loan Purpose", value: sub.loan_purpose, icon: Target },
+            { label: "Loan Type", value: sub.loan_type, icon: Tag },
+            { label: "Contact Email", value: sub.contact_email, icon: Mail },
+            { label: "Submitted", value: formatUtc(sub.created_at, "Y-m-d H:i"), icon: Clock },
+          ]}
         />
-      ) : (
-        <div className="flex flex-col gap-4">
-          {sub.analysis_status === "failed" ? (
-            <Alert variant="error">
-              The last re-run failed: {sub.analysis_error ?? "Unknown error."} The report below is
-              from the previous successful run.
-            </Alert>
-          ) : null}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="calcBlue" onClick={handleDownload} disabled={downloading}>
-              <Download className="h-4 w-4" aria-hidden="true" />
-              {downloading ? "Preparing…" : "Download Detailed Report (PDF)"}
-            </Button>
-            <Button variant="calcNavy" href={`/admin/bfsi/${id}/one-pager`}>
-              One-Page Rating Report →
-            </Button>
-            <SendReportButton
-              getPdfs={getPdfs}
-              endpoint={`/api/admin/bfsi/submissions/${id}/send`}
-              email={sub.contact_email}
-              fieldName="pdfs"
-            />
-            <Button variant="outline" onClick={handleAnalyze}>
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Re-run analysis
-            </Button>
-          </div>
+        <div className="flex min-w-0 flex-col gap-5 xl:col-start-1 xl:row-start-1">
+          {actionError ? <Alert variant="error">{actionError}</Alert> : null}
 
-          <BfsiDetailedReport
-            ref={reportRef}
-            submission={sub}
-            overall={overall}
-            recommendation={recommendation ?? ""}
-          />
+          {!showReport || !ai || !overall ? (
+            <AnalyzePanel
+              variant="bfsi"
+              label="Generating BFSI ESG Report"
+              status={running ? "running" : sub.analysis_status === "failed" ? "failed" : "idle"}
+              error={sub.analysis_error}
+              startedAt={sub.analysis_started_at}
+              onStart={handleAnalyze}
+              onPoll={reload}
+            />
+          ) : (
+            <>
+              {sub.analysis_status === "failed" ? (
+                <Alert variant="error">
+                  The last re-run failed: {sub.analysis_error ?? "Unknown error."} The report below
+                  is from the previous successful run.
+                </Alert>
+              ) : null}
 
-          {/* Off-screen render of both sheets for "Send report". Not display:none,
-              so the Chart.js canvases get a real size to draw into. */}
-          <div
-            aria-hidden="true"
-            inert
-            className="pointer-events-none fixed left-[-10000px] top-0 w-[750px]"
-          >
-            <BfsiDetailedReport
-              ref={pdfDetailedRef}
-              submission={sub}
-              overall={overall}
-              recommendation={recommendation ?? ""}
-            />
-            <BfsiOnePager
-              ref={pdfOnePagerRef}
-              submission={sub}
-              overall={overall}
-              previous={previous}
-              industryLabel={industry_label}
-            />
-          </div>
+              {/* Report actions left, Re-run right; when the column is too
+                  narrow, Re-run drops to its own line. */}
+              <div
+                className={clsx(CARD, "flex flex-wrap items-center justify-between gap-2 p-3")}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="adminPrimary" onClick={handleDownload} disabled={downloading}>
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    {downloading ? "Preparing…" : "Download Detailed Report (PDF)"}
+                  </Button>
+                  <Button variant="adminSecondary" href={`/admin/bfsi/${id}/one-pager`}>
+                    <ScrollText className="h-4 w-4" aria-hidden="true" />
+                    One-Page Rating Report
+                  </Button>
+                  <SendReportButton
+                    getPdfs={getPdfs}
+                    endpoint={`/api/admin/bfsi/submissions/${id}/send`}
+                    email={sub.contact_email}
+                    fieldName="pdfs"
+                  />
+                </div>
+                <Button variant="adminGhost" onClick={handleAnalyze}>
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  Re-run analysis
+                </Button>
+              </div>
+
+              <ReportPreview caption="Send report attaches this and the one-page report.">
+                {/* The same 750px sheet width as the off-screen copies below. */}
+                <div
+                  role="region"
+                  aria-label="Detailed report"
+                  tabIndex={0}
+                  className={clsx("overflow-x-auto", FOCUS_RING)}
+                >
+                  <div className="mx-auto w-[750px] pt-5">
+                    <BfsiDetailedReport
+                      ref={reportRef}
+                      submission={sub}
+                      overall={overall}
+                      recommendation={recommendation ?? ""}
+                    />
+                  </div>
+                </div>
+              </ReportPreview>
+
+              {/* Off-screen render of both sheets for "Send report". Not display:none,
+                  so the Chart.js canvases get a real size to draw into. */}
+              <div
+                aria-hidden="true"
+                inert
+                className="pointer-events-none fixed left-[-10000px] top-0 w-[750px]"
+              >
+                <BfsiDetailedReport
+                  ref={pdfDetailedRef}
+                  submission={sub}
+                  overall={overall}
+                  recommendation={recommendation ?? ""}
+                />
+                <BfsiOnePager
+                  ref={pdfOnePagerRef}
+                  submission={sub}
+                  overall={overall}
+                  previous={previous}
+                  industryLabel={industry_label}
+                />
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -418,6 +418,29 @@ body {
   }
 }
 
+/* Superadmin console: the indeterminate bar on a running analysis
+   (components/admin/AnalyzePanel.tsx). Reduced motion gets a still bar. */
+@keyframes adminIndeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+.admin-indeterminate {
+  animation: adminIndeterminate 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-indeterminate {
+    animation: none;
+    width: 100%;
+    opacity: 0.35;
+  }
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass-pill::before,
   .glass-pill[data-scrolled="true"]::before,

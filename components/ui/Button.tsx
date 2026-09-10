@@ -54,14 +54,25 @@ type ClickButtonProps = CommonProps &
 
 export type ButtonProps = LinkButtonProps | ClickButtonProps;
 
-export default function Button(props: ButtonProps) {
-  const { variant = "primary", size = "md", className, children, ...rest } = props;
+/** The class string a `<Button>` would get — for elements Button can't be,
+ * like a plain `<a>` to an API file download (a Next `<Link>` would try a
+ * client-side navigation first). */
+export function buttonClasses(
+  variant: ButtonVariant = "primary",
+  size: "sm" | "md" = "md",
+  className?: string,
+): string {
   const isAdmin = variant.startsWith("admin");
-  const classes = clsx(
+  return clsx(
     isAdmin ? [ADMIN_BASE_CLASSES, ADMIN_SIZE_CLASSES[size]] : BASE_CLASSES,
     VARIANT_CLASSES[variant],
     className,
   );
+}
+
+export default function Button(props: ButtonProps) {
+  const { variant = "primary", size = "md", className, children, ...rest } = props;
+  const classes = buttonClasses(variant, size, className);
 
   if ("href" in rest && rest.href) {
     return (

@@ -2,22 +2,45 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { Download, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Building2,
+  CalendarRange,
+  Clock,
+  Download,
+  Mail,
+  Phone,
+  RefreshCw,
+  User,
+} from "lucide-react";
+import clsx from "clsx";
 import type { EsgSubmission } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { downloadPdf, pdfBlob, ESG_PDF_OPTS } from "@/lib/pdf";
-import Card from "@/components/ui/Card";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import AnalyzePanel from "@/components/admin/AnalyzePanel";
 import SendReportButton from "@/components/admin/SendReportButton";
+import PageHeader from "@/components/admin/PageHeader";
+import DetailRail from "@/components/admin/DetailRail";
+import ReportPreview from "@/components/admin/ReportPreview";
+import { DetailSkeleton } from "@/components/admin/Skeleton";
+import { StatusBadge, submissionState } from "@/components/admin/Badge";
+import { CARD } from "@/components/admin/styles";
 import EsgReport from "@/components/reports/EsgReport";
 
 const PDF_FILENAME = "esg_report.pdf";
 
+const LIST_CRUMBS = [
+  { label: "Dashboard", href: "/admin" },
+  { label: "ESG Submissions", href: "/admin/esg" },
+];
+
 function statusLabel(sub: EsgSubmission): string {
   if (sub.analysis_status === "running") return "Analyzing…";
+  if (sub.analysis_status === "failed") return "Failed";
   if (sub.status === "sent") return "Sent";
   if (sub.status === "report_generated") return "Report generated";
   return "New";
@@ -107,113 +130,108 @@ export default function EsgSubmissionDetailPage() {
   }
 
   if (!sub && !loadError) {
-    return <div className="px-6 py-12 text-center text-sm text-muted">Loading…</div>;
+    return <DetailSkeleton />;
   }
 
   if (loadError || !sub) {
-    return <Alert variant="error">{loadError ?? "Submission not found."}</Alert>;
+    return (
+      <div className="flex flex-col gap-5">
+        <PageHeader crumbs={[...LIST_CRUMBS, { label: "Submission" }]} title="ESG submission" />
+        <Alert variant="error">{loadError ?? "Submission not found."}</Alert>
+        <Button variant="adminSecondary" href="/admin/esg" className="self-start">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          ESG Submissions
+        </Button>
+      </div>
+    );
   }
 
   const running = sub.analysis_status === "running";
   const final = sub.final;
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-ink">{sub.company_name}</h1>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        crumbs={[...LIST_CRUMBS, { label: sub.company_name }]}
+        title={sub.company_name}
+        description={`FY ${sub.report_year} report from ${sub.name}`}
+      />
 
-      <Card>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <dt className="text-muted">Name</dt>
-            <dd className="text-ink">{sub.name}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">Email</dt>
-            <dd className="text-ink">{sub.email}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">Designation</dt>
-            <dd className="text-ink">{sub.designation}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">Company</dt>
-            <dd className="text-ink">{sub.company_name}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">Mobile</dt>
-            <dd className="text-ink">{sub.mobile_number}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">FY</dt>
-            <dd className="text-ink">{sub.report_year}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">Submitted</dt>
-            <dd className="text-ink">{formatDate(sub.created_at)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">Status</dt>
-            <dd className="text-ink">{statusLabel(sub)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">Original file</dt>
-            <dd>
-              <a
-                href={`/api/admin/esg/submissions/${id}/file`}
-                className="font-medium text-calc-blue hover:underline"
-              >
-                Download original file
-              </a>
-            </dd>
-          </div>
-        </dl>
-      </Card>
-
-      {actionError ? <Alert variant="error">{actionError}</Alert> : null}
-
-      {running || !final ? (
-        <AnalyzePanel
-          status={running ? "running" : sub.analysis_status}
-          error={sub.analysis_error}
-          startedAt={sub.analysis_started_at}
-          onStart={handleAnalyze}
-          onPoll={reload}
-          label="Generating ESG Report"
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <DetailRail
+          className="xl:sticky xl:top-24 xl:col-start-2 xl:row-start-1"
+          title="Submission details"
+          badge={<StatusBadge state={submissionState(sub)} label={statusLabel(sub)} />}
+          fileHref={`/api/admin/esg/submissions/${id}/file`}
+          rows={[
+            { label: "Name", value: sub.name, icon: User },
+            { label: "Email", value: sub.email, icon: Mail },
+            { label: "Designation", value: sub.designation, icon: BadgeCheck },
+            { label: "Company", value: sub.company_name, icon: Building2 },
+            { label: "Mobile", value: sub.mobile_number, icon: Phone },
+            { label: "FY", value: sub.report_year, icon: CalendarRange },
+            { label: "Submitted", value: formatDate(sub.created_at), icon: Clock },
+          ]}
         />
-      ) : (
-        <div className="flex flex-col gap-4">
-          {sub.analysis_status === "failed" ? (
-            <Alert variant="error">
-              The last re-run failed: {sub.analysis_error ?? "Unknown error."} The report below is
-              from the previous successful run.
-            </Alert>
-          ) : null}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="calcBlue" onClick={handleDownload} disabled={downloading}>
-              <Download className="h-4 w-4" aria-hidden="true" />
-              {downloading ? "Preparing…" : "Download PDF"}
-            </Button>
-            <SendReportButton
-              getPdfs={async () => [await pdfBlob(reportRef.current as HTMLElement, ESG_PDF_OPTS)]}
-              endpoint={`/api/admin/esg/submissions/${id}/send`}
-              email={sub.email}
+        <div className="flex min-w-0 flex-col gap-5 xl:col-start-1 xl:row-start-1">
+          {actionError ? <Alert variant="error">{actionError}</Alert> : null}
+
+          {running || !final ? (
+            <AnalyzePanel
+              status={running ? "running" : sub.analysis_status}
+              error={sub.analysis_error}
+              startedAt={sub.analysis_started_at}
+              onStart={handleAnalyze}
+              onPoll={reload}
+              label="Generating ESG Report"
             />
-            <Button variant="outline" onClick={handleAnalyze}>
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Re-run analysis
-            </Button>
-          </div>
+          ) : (
+            <>
+              {sub.analysis_status === "failed" ? (
+                <Alert variant="error">
+                  The last re-run failed: {sub.analysis_error ?? "Unknown error."} The report below
+                  is from the previous successful run.
+                </Alert>
+              ) : null}
 
-          <EsgReport
-            ref={reportRef}
-            final={final}
-            yearScore={sub.year_score}
-            companyName={sub.company_name}
-            fy={sub.report_year}
-          />
+              {/* Report actions left, Re-run right; when the column is too
+                  narrow, Re-run drops to its own line. */}
+              <div
+                className={clsx(CARD, "flex flex-wrap items-center justify-between gap-2 p-3")}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="adminPrimary" onClick={handleDownload} disabled={downloading}>
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    {downloading ? "Preparing…" : "Download PDF"}
+                  </Button>
+                  <SendReportButton
+                    getPdfs={async () => [
+                      await pdfBlob(reportRef.current as HTMLElement, ESG_PDF_OPTS),
+                    ]}
+                    endpoint={`/api/admin/esg/submissions/${id}/send`}
+                    email={sub.email}
+                  />
+                </div>
+                <Button variant="adminGhost" onClick={handleAnalyze}>
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  Re-run analysis
+                </Button>
+              </div>
+
+              <ReportPreview caption="The PDF and the emailed copy match this sheet.">
+                <EsgReport
+                  ref={reportRef}
+                  final={final}
+                  yearScore={sub.year_score}
+                  companyName={sub.company_name}
+                  fy={sub.report_year}
+                />
+              </ReportPreview>
+            </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

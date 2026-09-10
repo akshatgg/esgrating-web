@@ -3,10 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ArrowLeft, Download, Sparkles } from "lucide-react";
+import clsx from "clsx";
 import type { BfsiDetail } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { BFSI_PDF_OPTS, downloadPdf } from "@/lib/pdf";
 import Alert from "@/components/ui/Alert";
+import Button from "@/components/ui/Button";
+import PageHeader from "@/components/admin/PageHeader";
+import ReportPreview from "@/components/admin/ReportPreview";
+import IconTile from "@/components/admin/IconTile";
+import { Bone } from "@/components/admin/Skeleton";
+import { CARD, FOCUS_RING } from "@/components/admin/styles";
 import BfsiOnePager from "@/components/reports/BfsiOnePager";
 
 /** Port of bfsi-calculator/admin/one_pager.php. */
@@ -50,12 +58,61 @@ export default function BfsiOnePagerPage() {
     }
   }
 
+  const borrower = detail?.submission.borrower_name;
+  const crumbs = [
+    { label: "Dashboard", href: "/admin" },
+    { label: "BFSI Submissions", href: "/admin/bfsi" },
+    { label: borrower ?? "Submission", href: `/admin/bfsi/${id}` },
+    { label: "One-page report" },
+  ];
+  const ready = !!detail?.submission.ai_analysis && !!detail?.overall;
+
+  const header = (
+    <PageHeader
+      crumbs={crumbs}
+      title="One-Page Rating Report"
+      description={borrower}
+      actions={
+        <>
+          <Button variant="adminSecondary" href={`/admin/bfsi/${id}`}>
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Detailed report
+          </Button>
+          {ready ? (
+            <Button variant="adminPrimary" onClick={handleDownload} disabled={downloading}>
+              <Download className="h-4 w-4" aria-hidden="true" />
+              {downloading ? "Preparing…" : "Download PDF"}
+            </Button>
+          ) : null}
+        </>
+      }
+    />
+  );
+
   if (!detail && !loadError) {
-    return <div className="px-6 py-12 text-center text-sm text-muted">Loading…</div>;
+    return (
+      <div className="flex flex-col gap-5" aria-busy="true">
+        <span role="status" className="sr-only">
+          Loading…
+        </span>
+        <div>
+          <Bone className="h-3 w-56" />
+          <Bone className="mt-3 h-6 w-72 max-w-full" />
+        </div>
+        <div className={clsx(CARD, "h-[480px] p-6")}>
+          <Bone className="h-4 w-32" />
+        </div>
+      </div>
+    );
   }
 
   if (loadError || !detail) {
-    return <Alert variant="error">{loadError ?? "Submission not found."}</Alert>;
+    return (
+      <div className="flex flex-col gap-5">
+        {header}
+        <Alert variant="error">{loadError ?? "Submission not found."}</Alert>
+      </div>
+    );
   }
 
   const { submission: sub, overall, previous, industry_label } = detail;
@@ -63,48 +120,40 @@ export default function BfsiOnePagerPage() {
   // one_pager.php's 409 page.
   if (!sub.ai_analysis || !overall) {
     return (
-      <div className="rounded-2xl border border-line bg-white px-6 py-8 text-sm text-ink">
-        <p>
-          AI analysis has not run for this submission yet.{" "}
-          <Link href={`/admin/bfsi/${id}`} className="text-calc-blue hover:underline">
-            Run it from the detailed report
-          </Link>
-          , then come back.
-        </p>
+      <div className="flex flex-col gap-5">
+        {header}
+        <div className={clsx(CARD, "flex items-start gap-4 p-5 sm:p-6")}>
+          <IconTile icon={Sparkles} tone="amber" />
+          <p className="pt-2 text-sm text-ink">
+            AI analysis has not run for this submission yet.{" "}
+            <Link
+              href={`/admin/bfsi/${id}`}
+              className={clsx("rounded font-medium text-brand hover:underline", FOCUS_RING)}
+            >
+              Run it from the detailed report
+            </Link>
+            , then come back.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col">
-      {/* one_pager.php's `.page-actions` */}
-      <div className="mx-auto flex w-full max-w-[736px] items-center justify-between font-[Arial,sans-serif] text-sm">
-        <Link href={`/admin/bfsi/${id}`} className="text-[#002d6c] hover:underline">
-          ← Detailed report
-        </Link>
-        <button
-          type="button"
-          onClick={handleDownload}
-          disabled={downloading}
-          className="rounded bg-[#002d6c] px-4 py-2 text-sm text-white disabled:opacity-60"
-        >
-          {downloading ? "Preparing…" : "Download PDF"}
-        </button>
-      </div>
+    <div className="flex flex-col gap-5">
+      {header}
 
-      {actionError ? (
-        <Alert variant="error" className="mx-auto mt-3 w-full max-w-[736px]">
-          {actionError}
-        </Alert>
-      ) : null}
+      {actionError ? <Alert variant="error">{actionError}</Alert> : null}
 
-      <BfsiOnePager
-        ref={ref}
-        submission={sub}
-        overall={overall}
-        previous={previous}
-        industryLabel={industry_label}
-      />
+      <ReportPreview caption="Downloads as esg-rating-report PDF.">
+        <BfsiOnePager
+          ref={ref}
+          submission={sub}
+          overall={overall}
+          previous={previous}
+          industryLabel={industry_label}
+        />
+      </ReportPreview>
     </div>
   );
 }
