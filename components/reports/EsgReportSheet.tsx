@@ -1,9 +1,12 @@
 import { forwardRef, type ReactNode } from "react";
+import { EditableHeading, EditableLogo } from "@/components/reports/edit/ReportEdit";
 import styles from "@/components/reports/EsgReport.module.css";
 
 // The esg_template.html sheet (esg.md §A8), as a presentational component:
 // EsgReport (the calculator report) and EsgRatingOnePager (a rated company)
-// are thin mappers onto it, so the two stay one template.
+// are thin mappers onto it, so the two stay one template. Headings and the
+// logo read their overrides from a ReportEditProvider when there is one
+// (editable reports); without one they render the template's own copy.
 
 /** Same-origin copy of the template's logo (byte-identical to the
  * esgratings.co.in WhatsApp-Image-2024-10-09 upload), so html2canvas can draw
@@ -60,16 +63,18 @@ const EsgReportSheet = forwardRef<HTMLDivElement, EsgReportSheetProps>(function 
       <div ref={ref} className={styles["report-container"]}>
         <div className={styles["esg-title"]}>
           <div>
-            {/* eslint-disable-next-line @next/next/no-img-element -- plain <img>
-                so html2canvas can capture it into the PDF */}
-            <img src={ESG_REPORT_LOGO} alt="ESG Logo" width={100} height={100} />
+            <EditableLogo defaultSrc={ESG_REPORT_LOGO} alt="ESG Logo" width={100} height={100} />
           </div>
-          <div>SEBI Registered ERP</div>
+          <EditableHeading k="sebi_line" as="div">
+            SEBI Registered ERP
+          </EditableHeading>
         </div>
 
         <div className={styles["esg-card"]}>
           <div className={styles["esg-header"]}>
-            <h1 className={styles["main-heading"]}>ESG Rating Report</h1>
+            <EditableHeading k="esg_rating_report" as="h1" className={styles["main-heading"]}>
+              ESG Rating Report
+            </EditableHeading>
           </div>
           <div className={styles.report}>
             <div className={styles["left-section"]}>
@@ -106,7 +111,9 @@ const EsgReportSheet = forwardRef<HTMLDivElement, EsgReportSheetProps>(function 
           <div className={styles["left-section"]}>
             <div className={styles["esg-card"]}>
               <div className={styles["esg-header"]}>
-                <h1 className={styles["esg-heading"]}>Rating Summary</h1>
+                <EditableHeading k="rating_summary" as="h1" className={styles["esg-heading"]}>
+                  Rating Summary
+                </EditableHeading>
               </div>
               <div className={styles.details}>
                 <table className={styles["table-group"]}>
@@ -145,7 +152,9 @@ const EsgReportSheet = forwardRef<HTMLDivElement, EsgReportSheetProps>(function 
 
             <div className={styles["esg-card"]}>
               <div className={styles["esg-header"]}>
-                <h1 className={styles["esg-heading"]}>Result</h1>
+                <EditableHeading k="result" as="h1" className={styles["esg-heading"]}>
+                  Result
+                </EditableHeading>
               </div>
               <div className={`${styles.details} ${styles["esg-summary"]}`}>
                 <table className={styles["table-group"]}>
@@ -169,7 +178,9 @@ const EsgReportSheet = forwardRef<HTMLDivElement, EsgReportSheetProps>(function 
 
             <div className={styles["esg-card"]} style={{ margin: 0 }}>
               <div className={styles["esg-header"]}>
-                <h1 className={styles["esg-heading"]}>Score Summary</h1>
+                <EditableHeading k="score_summary" as="h1" className={styles["esg-heading"]}>
+                  Score Summary
+                </EditableHeading>
               </div>
               <div className={`${styles.details} ${styles["esg-summary"]}`}>
                 <table className={styles["table-group"]}>
@@ -192,7 +203,9 @@ const EsgReportSheet = forwardRef<HTMLDivElement, EsgReportSheetProps>(function 
 
           <div className={styles["esg-right-section"]}>
             <div className={styles["esg-score-heading"]}>
-              <h2>ESG Score</h2>
+              <EditableHeading k="esg_score" as="h2">
+                ESG Score
+              </EditableHeading>
             </div>
             <div className={styles["chart-container"]}>
               <div className={styles.chart}>

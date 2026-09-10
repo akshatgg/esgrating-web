@@ -10,6 +10,17 @@ import type {
 import { bfsiGrade, GRADE_COLORS } from "@/lib/grades";
 import { asArray, formatUtc, numberFormat, phpFloat } from "@/lib/format";
 import Doughnut from "@/components/reports/Doughnut";
+import {
+  EditableHeading,
+  EditableListItems,
+  EditableLogo,
+  EditableText,
+  KeywordChips,
+  PillarScore,
+  useField,
+  useReportEdit,
+} from "@/components/reports/edit/ReportEdit";
+import PageScoresTables from "@/components/reports/edit/PageScoresPanel";
 import styles from "@/components/reports/BfsiDetailedReport.module.css";
 
 /** report.php / one_pager.php load the logo from
@@ -25,9 +36,9 @@ const CATEGORIES: ReadonlyArray<readonly [BfsiCategory, string]> = [
 ];
 
 const PILLARS = [
-  { key: "e", pillar: "Environment", color: "#1e8e5a" },
-  { key: "s", pillar: "Social", color: "#2166b8" },
-  { key: "g", pillar: "Governance", color: "#c98a12" },
+  { key: "e", cat: "E", pillar: "Environment", color: "#1e8e5a" },
+  { key: "s", cat: "S", pillar: "Social", color: "#2166b8" },
+  { key: "g", cat: "G", pillar: "Governance", color: "#c98a12" },
 ] as const;
 
 // report.php:270-280 — default Chart.js doughnut, legend at the bottom.
@@ -67,6 +78,8 @@ function isReason(r: BfsiReason | string): r is BfsiReason {
   return typeof r === "object" && r !== null;
 }
 
+type Keywords = Partial<Record<BfsiCategory, string[]>>;
+
 type BfsiDetailedReportProps = {
   submission: BfsiSubmission;
   /** From the API — recomputed from the stored E/S/G (report.php:17). */
@@ -77,10 +90,22 @@ type BfsiDetailedReportProps = {
 
 /** Port of report.php's `#bfsiReport` card (sections 1–9, bfsi.md §3). The ref
  * points at the card root, for `lib/pdf.ts`. Renders nothing without an
- * `ai_analysis`. */
+ * `ai_analysis`. Inside a `ReportEditProvider` in edit mode, headings, text,
+ * lists, keywords, the logo and the pillar scores become inline editors and the
+ * Scoring Rationale becomes the editable page-scores table. */
 const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
   function BfsiDetailedReport({ submission: sub, overall, recommendation }, ref) {
     const ai = sub.ai_analysis;
+    const edit = useReportEdit();
+    const editing = edit?.editing ?? false;
+    const company = useField("company", sub.borrower_name);
+    const risks = useField("top_risks", asArray(ai?.top_risks));
+    const improvements = useField("top_improvements", asArray(ai?.top_improvements));
+    const climate = useField("climate_risk", ai?.climate_risk ?? "");
+    const governance = useField("governance_summary", ai?.governance_summary ?? "");
+    const keywords = useField<Keywords>("keywords", ai?.keywords ?? {});
+    const negKeywords = useField<Keywords>("negative_keywords", ai?.negative_keywords ?? {});
+    const decision = useField("recommendation", recommendation);
     if (!ai) return null;
 
     const scores = { e: sub.e_score ?? 0, s: sub.s_score ?? 0, g: sub.g_score ?? 0 };
@@ -93,12 +118,24 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
       <div ref={ref} className={styles.card}>
         {/* 1. Header */}
         <div className={styles["report-header"]}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- plain <img> so html2canvas can capture it */}
-          <img src={BFSI_REPORT_LOGO} alt="ESG Ratings logo" />
-          <div>
-            <h2>BFSI ESG Credit Risk Report — Detailed Assessment</h2>
+          <EditableLogo defaultSrc={BFSI_REPORT_LOGO} alt="ESG Ratings logo" />
+          <div style={editing ? { flex: 1 } : undefined}>
+            <EditableHeading k="report_title" as="h2">
+              BFSI ESG Credit Risk Report — Detailed Assessment
+            </EditableHeading>
             <div style={{ color: "#5c6b82", fontSize: 13 }}>
-              {sub.borrower_name} · {formatUtc(sub.created_at, "Y-m-d H:i")}
+              {editing ? (
+                <span style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
+                  <span style={{ flex: 1 }}>
+                    <EditableText k="company" label="Company" value={company} />
+                  </span>
+                  <span>· {formatUtc(sub.created_at, "Y-m-d H:i")}</span>
+                </span>
+              ) : (
+                <>
+                  {company} · {formatUtc(sub.created_at, "Y-m-d H:i")}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -127,7 +164,7 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
         </div>
 
         {/* 3. Marks by Pillar */}
-        <h3>Marks by Pillar</h3>
+        <EditableHeading k="marks_by_pillar">Marks by Pillar</EditableHeading>
         <p className={styles["factor-note"]}>
           Assessed on the <b>{overall.weightage_row}</b> weighting (loan type: {sub.loan_type}).
           Each pillar&apos;s weight is the marks available for it.
@@ -136,6 +173,7 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
           <tbody>
             <tr>
               <th>Pillar</th>
+              {editing ? <th>Score</th> : null}
               <th>Marks</th>
               <th>Out of</th>
               <th>Grade</th>
@@ -149,6 +187,13 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
                     <span className={styles.swatch} style={{ background: p.color }} />
                     <b>{p.pillar}</b>
                   </td>
+                  {editing ? (
+                    <td>
+                      <PillarScore cat={p.cat} pillar={p.pillar} score={score}>
+                        {phpFloat(score)}
+                      </PillarScore>
+                    </td>
+                  ) : null}
                   <td>
                     <b>{numberFormat((max * score) / 100, 2)}</b>
                   </td>
@@ -161,6 +206,7 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
               <td>
                 <b>Total</b>
               </td>
+              {editing ? <td /> : null}
               <td>
                 <b>{phpFloat(overall.overall)}</b>
               </td>
@@ -175,7 +221,7 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
         </table>
 
         {/* 4. Rating Summary */}
-        <h3>Rating Summary</h3>
+        <EditableHeading k="rating_summary">Rating Summary</EditableHeading>
         <p>
           This borrower has been assessed with an overall ESG credit risk score of{" "}
           <b>{phpFloat(overall.overall)}</b> (Grade{" "}
@@ -187,32 +233,37 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
         </p>
 
         {/* 5. Risks, improvements, climate, governance */}
-        <h3>Top 5 Risks</h3>
+        <EditableHeading k="top_risks">Top 5 Risks</EditableHeading>
         <ul className={styles.risks}>
-          {asArray(ai.top_risks)
-            .slice(0, 5)
-            .map((risk, i) => (
-              <li key={i}>{risk}</li>
-            ))}
+          <EditableListItems k="top_risks" label="Risk" items={risks.slice(0, 5)} max={5} />
         </ul>
 
-        <h3>Top 5 Improvements</h3>
+        <EditableHeading k="top_improvements">Top 5 Improvements</EditableHeading>
         <ul className={styles.risks}>
-          {asArray(ai.top_improvements)
-            .slice(0, 5)
-            .map((imp, i) => (
-              <li key={i}>{imp}</li>
-            ))}
+          <EditableListItems
+            k="top_improvements"
+            label="Improvement"
+            items={improvements.slice(0, 5)}
+            max={5}
+          />
         </ul>
 
-        <h3>Climate Risk</h3>
-        <p>{nl2br(ai.climate_risk ?? "")}</p>
+        <EditableHeading k="climate_risk">Climate Risk</EditableHeading>
+        <p>
+          <EditableText k="climate_risk" label="Climate risk" value={climate} multiline>
+            {nl2br(climate)}
+          </EditableText>
+        </p>
 
-        <h3>Governance Summary</h3>
-        <p>{nl2br(ai.governance_summary ?? "")}</p>
+        <EditableHeading k="governance_summary">Governance Summary</EditableHeading>
+        <p>
+          <EditableText k="governance_summary" label="Governance summary" value={governance} multiline>
+            {nl2br(governance)}
+          </EditableText>
+        </p>
 
         {/* 6. Signals by Category */}
-        <h3>Signals by Category</h3>
+        <EditableHeading k="signals">Signals by Category</EditableHeading>
         <table className={styles.data}>
           <tbody>
             <tr>
@@ -221,25 +272,51 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
               <th>Negative signals</th>
             </tr>
             {CATEGORIES.map(([ck, label]) => {
-              const pos = asArray(ai.keywords?.[ck]);
-              const neg = asArray(ai.negative_keywords?.[ck]);
+              const pos = asArray(keywords[ck]);
+              const neg = asArray(negKeywords[ck]);
               return (
                 <tr key={ck}>
                   <td>
                     <b>{label}</b>
                   </td>
-                  <td>{pos.length ? pos.join(", ") : "—"}</td>
-                  <td className={styles.neg}>{neg.length ? neg.join(", ") : "—"}</td>
+                  <td>
+                    <KeywordChips
+                      label={`${label} positive signals`}
+                      values={pos}
+                      onChange={(next) => edit?.setField?.("keywords", { ...keywords, [ck]: next })}
+                    >
+                      {pos.length ? pos.join(", ") : "—"}
+                    </KeywordChips>
+                  </td>
+                  <td className={styles.neg}>
+                    <KeywordChips
+                      label={`${label} negative signals`}
+                      values={neg}
+                      onChange={(next) =>
+                        edit?.setField?.("negative_keywords", { ...negKeywords, [ck]: next })
+                      }
+                    >
+                      {neg.length ? neg.join(", ") : "—"}
+                    </KeywordChips>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
 
-        {/* 7. Scoring Rationale */}
-        {hasReasons ? (
+        {/* 7. Scoring Rationale (edit mode: the editable page-scores table) */}
+        {editing ? (
           <>
-            <h3>Scoring Rationale</h3>
+            <EditableHeading k="scoring_rationale">Scoring Rationale</EditableHeading>
+            <p style={{ color: "#5c6b82", fontSize: 13, marginTop: 0 }}>
+              Change a page score to recompute its pillar average, the overall score and the grades.
+            </p>
+            <PageScoresTables />
+          </>
+        ) : hasReasons ? (
+          <>
+            <EditableHeading k="scoring_rationale">Scoring Rationale</EditableHeading>
             <p style={{ color: "#5c6b82", fontSize: 13, marginTop: 0 }}>
               Every page of the uploaded report is scored on its own. Each line below cites the page
               it came from.
@@ -276,7 +353,7 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
         ) : null}
 
         {/* 8. Score Scale */}
-        <h3>Score Scale</h3>
+        <EditableHeading k="score_scale">Score Scale</EditableHeading>
         <table className={styles.data}>
           <tbody>
             <tr>
@@ -295,8 +372,10 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
         </table>
 
         {/* 9. Recommended Lending Decision */}
-        <h3>Recommended Lending Decision</h3>
-        <p style={{ fontWeight: 700, color }}>{recommendation}</p>
+        <EditableHeading k="recommended_decision">Recommended Lending Decision</EditableHeading>
+        <p style={{ fontWeight: 700, color }}>
+          <EditableText k="recommendation" label="Recommended lending decision" value={decision} />
+        </p>
       </div>
     );
   },

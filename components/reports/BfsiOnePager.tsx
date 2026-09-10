@@ -1,9 +1,18 @@
-import { forwardRef } from "react";
-import type { BfsiDetail, BfsiOverall, BfsiSubmission } from "@/lib/types";
+import { forwardRef, Fragment } from "react";
+import type { BfsiCategory, BfsiDetail, BfsiOverall, BfsiSubmission } from "@/lib/types";
 import { bfsiGrade, fyFull, fyShortOf } from "@/lib/grades";
 import { asArray, capitalizeFirst, formatUtc, numberFormat, parseApiDate } from "@/lib/format";
 import Doughnut from "@/components/reports/Doughnut";
 import { BFSI_REPORT_LOGO } from "@/components/reports/BfsiDetailedReport";
+import {
+  EditableHeading,
+  EditableLogo,
+  EditableText,
+  KeywordChips,
+  PillarScore,
+  useField,
+  useReportEdit,
+} from "@/components/reports/edit/ReportEdit";
 import styles from "@/components/reports/BfsiOnePager.module.css";
 
 // All dates are read in UTC: one_pager.php formats `created_at` via PHP
@@ -27,6 +36,12 @@ const LEGEND = [
   { color: "#FFEB3B", label: "Governance" },
 ];
 
+const KPIS: ReadonlyArray<readonly [BfsiCategory, string, string]> = [
+  ["E", "env_kpis", "Environment KPI's"],
+  ["S", "soc_kpis", "Social KPI's"],
+  ["G", "gov_kpis", "Governance KPI's"],
+];
+
 type BfsiOnePagerProps = {
   submission: BfsiSubmission;
   overall: BfsiOverall;
@@ -37,12 +52,20 @@ type BfsiOnePagerProps = {
 /** Port of admin/one_pager.php (itself a port of the ESG calculator's
  * esg_template.html) — same markup, CSS and palette. Fixed 736px sheet inside
  * a horizontally-scrolling wrapper; the ref points at the sheet, for
- * `lib/pdf.ts`. Renders nothing without an `ai_analysis`. */
+ * `lib/pdf.ts`. Renders nothing without an `ai_analysis`. Editable in place
+ * inside a `ReportEditProvider` in edit mode. */
 const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function BfsiOnePager(
   { submission: sub, overall, previous, industryLabel },
   ref,
 ) {
   const ai = sub.ai_analysis;
+  const edit = useReportEdit();
+  const created = parseApiDate(sub.created_at);
+  const company = useField("company", sub.borrower_name);
+  const sector = useField("sector", industryLabel);
+  const fy = useField("fy", fyFull(created));
+  const reportDate = useField("report_date", formatUtc(sub.created_at, "Y-m-d"));
+  const keywords = useField<Partial<Record<BfsiCategory, string[]>>>("keywords", ai?.keywords ?? {});
   if (!ai) return null;
 
   const e = sub.e_score ?? 0;
@@ -52,8 +75,6 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
   const sGrade = bfsiGrade(s);
   const gGrade = bfsiGrade(g);
 
-  const created = parseApiDate(sub.created_at);
-  const reportDate = formatUtc(sub.created_at, "Y-m-d");
   const fyThis = fyShortOf(created);
 
   // Prior-period score: the borrower's last scored submission under the same
@@ -65,25 +86,28 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
     prevScore === null ? "none" : overall.overall >= prevScore ? "positive" : "negative";
 
   const pillars = [
-    { label: "Environment", score: e, grade: eGrade },
-    { label: "Social", score: s, grade: sGrade },
-    { label: "Governance", score: g, grade: gGrade },
-  ];
+    { cat: "E", label: "Environment", score: e, grade: eGrade },
+    { cat: "S", label: "Social", score: s, grade: sGrade },
+    { cat: "G", label: "Governance", score: g, grade: gGrade },
+  ] as const;
 
   return (
     <div className="overflow-x-auto">
       <div ref={ref} className={styles["report-container"]}>
         <div className={styles["esg-title"]}>
           <div>
-            {/* eslint-disable-next-line @next/next/no-img-element -- plain <img> so html2canvas can capture it */}
-            <img src={BFSI_REPORT_LOGO} alt="ESG Logo" width={100} height={100} />
+            <EditableLogo defaultSrc={BFSI_REPORT_LOGO} alt="ESG Logo" width={100} height={100} />
           </div>
-          <div>SEBI Registered ERP</div>
+          <EditableHeading k="sebi_line" as="div">
+            SEBI Registered ERP
+          </EditableHeading>
         </div>
 
         <div className={styles["esg-card"]}>
           <div className={styles["esg-header"]}>
-            <h1 className={styles["main-heading"]}>ESG Rating Report</h1>
+            <EditableHeading k="esg_rating_report" as="h1" className={styles["main-heading"]}>
+              ESG Rating Report
+            </EditableHeading>
           </div>
           <div className={styles.report}>
             <div className={styles["left-section"]}>
@@ -91,19 +115,27 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
                 <tbody>
                   <tr>
                     <td>Company:</td>
-                    <td className={styles.item_bold}>{sub.borrower_name}</td>
+                    <td className={styles.item_bold}>
+                      <EditableText k="company" label="Company" value={company} />
+                    </td>
                   </tr>
                   <tr>
                     <td>Sector:</td>
-                    <td className={styles.item_bold}>{industryLabel}</td>
+                    <td className={styles.item_bold}>
+                      <EditableText k="sector" label="Sector" value={sector} />
+                    </td>
                   </tr>
                   <tr>
                     <td>FY:</td>
-                    <td className={styles.item_bold}>{fyFull(created)}</td>
+                    <td className={styles.item_bold}>
+                      <EditableText k="fy" label="Financial year" value={fy} />
+                    </td>
                   </tr>
                   <tr>
                     <td>Report Date:</td>
-                    <td className={styles.item_bold}>{reportDate}</td>
+                    <td className={styles.item_bold}>
+                      <EditableText k="report_date" label="Report date" value={reportDate} />
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -120,7 +152,9 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
           <div className={styles["left-section"]}>
             <div className={styles["esg-card"]}>
               <div className={styles["esg-header"]}>
-                <h1 className={styles["esg-heading"]}>Rating Summary</h1>
+                <EditableHeading k="rating_summary" as="h1" className={styles["esg-heading"]}>
+                  Rating Summary
+                </EditableHeading>
               </div>
               <div className={styles.details}>
                 <table className={styles["table-group"]}>
@@ -134,7 +168,11 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
                     {pillars.map((p) => (
                       <tr key={p.label}>
                         <td>{p.label}</td>
-                        <td className={styles.item_bold}>{numberFormat(p.score, 2)}</td>
+                        <td className={styles.item_bold}>
+                          <PillarScore cat={p.cat} pillar={p.label} score={p.score}>
+                            {numberFormat(p.score, 2)}
+                          </PillarScore>
+                        </td>
                         <td className={styles["center-text"]}>{p.grade.grade}</td>
                         <td>{p.grade.label}</td>
                       </tr>
@@ -146,7 +184,9 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
 
             <div className={styles["esg-card"]}>
               <div className={styles["esg-header"]}>
-                <h1 className={styles["esg-heading"]}>Result</h1>
+                <EditableHeading k="result" as="h1" className={styles["esg-heading"]}>
+                  Result
+                </EditableHeading>
               </div>
               <div className={`${styles.details} ${styles["esg-summary"]}`}>
                 <table className={styles["table-group"]}>
@@ -170,7 +210,9 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
 
             <div className={styles["esg-card"]} style={{ margin: 0 }}>
               <div className={styles["esg-header"]}>
-                <h1 className={styles["esg-heading"]}>Score Summary</h1>
+                <EditableHeading k="score_summary" as="h1" className={styles["esg-heading"]}>
+                  Score Summary
+                </EditableHeading>
               </div>
               <div className={`${styles.details} ${styles["esg-summary"]}`}>
                 <table className={styles["table-group"]}>
@@ -235,7 +277,9 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
 
           <div className={styles["esg-right-section"]}>
             <div className={styles["esg-score-heading"]}>
-              <h2>ESG Score</h2>
+              <EditableHeading k="esg_score" as="h2">
+                ESG Score
+              </EditableHeading>
             </div>
             {/* one_pager.php:581-603 — the legend sits inside .chart-container,
                 beside the chart. borderWidth 2 = Chart.js's default arc border
@@ -262,12 +306,22 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
                 ))}
               </div>
             </div>
-            <h3 className={styles.subheading}>Environment KPI&apos;s</h3>
-            <p>{kpiList(ai.keywords?.E)}</p>
-            <h3 className={styles.subheading}>Social KPI&apos;s</h3>
-            <p>{kpiList(ai.keywords?.S)}</p>
-            <h3 className={styles.subheading}>Governance KPI&apos;s</h3>
-            <p>{kpiList(ai.keywords?.G)}</p>
+            {KPIS.map(([cat, key, heading]) => (
+              <Fragment key={cat}>
+                <EditableHeading k={key} as="h3" className={styles.subheading}>
+                  {heading}
+                </EditableHeading>
+                <p>
+                  <KeywordChips
+                    label={heading}
+                    values={asArray(keywords[cat])}
+                    onChange={(next) => edit?.setField?.("keywords", { ...keywords, [cat]: next })}
+                  >
+                    {kpiList(keywords[cat])}
+                  </KeywordChips>
+                </p>
+              </Fragment>
+            ))}
           </div>
         </div>
 

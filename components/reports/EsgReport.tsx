@@ -4,6 +4,14 @@ import { fyShort, prevFy } from "@/lib/grades";
 import { formatScore, capitalizeFirst } from "@/lib/format";
 import Doughnut from "@/components/reports/Doughnut";
 import EsgReportSheet from "@/components/reports/EsgReportSheet";
+import {
+  EditableHeading,
+  EditableText,
+  KeywordChips,
+  PillarScore,
+  useField,
+  useReportEdit,
+} from "@/components/reports/edit/ReportEdit";
 import styles from "@/components/reports/EsgReport.module.css";
 
 /** esg-report.php's download name for the calculator report PDF. */
@@ -44,6 +52,12 @@ function joinKeywords(keywords: string[]): string {
   return keywords.map(capitalizeFirst).join(", ");
 }
 
+const KPIS = [
+  ["environmental_top_keywords", "env_kpis", "Environment KPI's"],
+  ["social_top_keywords", "soc_kpis", "Social KPI's"],
+  ["governance_top_keywords", "gov_kpis", "Governance KPI's"],
+] as const;
+
 type EsgReportProps = {
   final: EsgFinal;
   yearScore?: YearScore;
@@ -55,11 +69,22 @@ type EsgReportProps = {
  * builder (esg.md §A8/§B4), mapped onto the shared `EsgReportSheet`. Fixed
  * 736px width inside a horizontally-scrolling wrapper for narrow viewports.
  * The returned ref points at the report root, suitable for `lib/pdf.ts`'s
- * `pdfBlob`/`downloadPdf`. */
+ * `pdfBlob`/`downloadPdf`. Editable in place inside a `ReportEditProvider`. */
 const EsgReport = forwardRef<HTMLDivElement, EsgReportProps>(function EsgReport(
   { final, yearScore, companyName, fy },
   ref,
 ) {
+  const edit = useReportEdit();
+  const company = useField("company", companyName);
+  const sector = useField("sector", final.sector);
+  const fyShown = useField("fy", fy);
+  const reportDate = useField("report_date", final.report_date);
+  const kpis = {
+    environmental_top_keywords: useField("environmental_top_keywords", final.environmental_top_keywords),
+    social_top_keywords: useField("social_top_keywords", final.social_top_keywords),
+    governance_top_keywords: useField("governance_top_keywords", final.governance_top_keywords),
+  };
+
   const firstAssessment = isFirstAssessment(yearScore);
   const previousYearLabel = reportPreviousYearLabel(yearScore);
   const previousScore =
@@ -74,28 +99,40 @@ const EsgReport = forwardRef<HTMLDivElement, EsgReportProps>(function EsgReport(
     <EsgReportSheet
       ref={ref}
       header={{
-        company: companyName,
-        sector: final.sector,
-        fy,
-        reportDate: final.report_date,
+        company: <EditableText k="company" label="Company" value={company} />,
+        sector: <EditableText k="sector" label="Sector" value={sector} />,
+        fy: <EditableText k="fy" label="Financial year" value={fyShown} />,
+        reportDate: <EditableText k="report_date" label="Report date" value={reportDate} />,
         badge: final.composite_score_performance,
       }}
       pillars={[
         {
           pillar: "Environment",
-          score: formatScore(final.environmental_score),
+          score: (
+            <PillarScore cat="E" pillar="Environment" score={final.environmental_score}>
+              {formatScore(final.environmental_score)}
+            </PillarScore>
+          ),
           rating: final.environmental_score_performance,
           performance: final.environmental_score_performance_label,
         },
         {
           pillar: "Social",
-          score: formatScore(final.social_score),
+          score: (
+            <PillarScore cat="S" pillar="Social" score={final.social_score}>
+              {formatScore(final.social_score)}
+            </PillarScore>
+          ),
           rating: final.social_score_performance,
           performance: final.social_score_performance_label,
         },
         {
           pillar: "Governance",
-          score: formatScore(final.governance_score),
+          score: (
+            <PillarScore cat="G" pillar="Governance" score={final.governance_score}>
+              {formatScore(final.governance_score)}
+            </PillarScore>
+          ),
           rating: final.governance_score_performance,
           performance: final.governance_score_performance_label,
         },
@@ -161,16 +198,44 @@ const EsgReport = forwardRef<HTMLDivElement, EsgReportProps>(function EsgReport(
       chartScore={score}
       rightPanel={
         <>
-          <h3 className={styles.subheading}>Environment KPI&apos;s</h3>
-          <p>{joinKeywords(final.environmental_top_keywords)}</p>
-          <h3 className={styles.subheading}>Social KPI&apos;s</h3>
-          <p>{joinKeywords(final.social_top_keywords)}</p>
-          <h3 className={styles.subheading}>Governance KPI&apos;s</h3>
-          <p>{joinKeywords(final.governance_top_keywords)}</p>
+          {KPIS.map(([key, headingKey, heading]) => (
+            <KpiBlock
+              key={key}
+              headingKey={headingKey}
+              heading={heading}
+              values={kpis[key]}
+              onChange={(next) => edit?.setField?.(key, next)}
+            />
+          ))}
         </>
       }
     />
   );
 });
+
+function KpiBlock({
+  headingKey,
+  heading,
+  values,
+  onChange,
+}: {
+  headingKey: string;
+  heading: string;
+  values: string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <>
+      <EditableHeading k={headingKey} as="h3" className={styles.subheading}>
+        {heading}
+      </EditableHeading>
+      <p>
+        <KeywordChips label={heading} values={values} onChange={onChange}>
+          {joinKeywords(values)}
+        </KeywordChips>
+      </p>
+    </>
+  );
+}
 
 export default EsgReport;
