@@ -11,6 +11,9 @@ export type Column<T> = {
    * where two columns render different things off the same field — e.g. a
    * submission's "Score" and "Grade" columns both come from `final`. */
   id?: string;
+  /** Console tables: pin this column to the right edge while the table
+   * scrolls sideways — for row actions on wide tables. */
+  sticky?: boolean;
 };
 
 type DataTableProps<T> = {
@@ -18,11 +21,19 @@ type DataTableProps<T> = {
   rows: T[];
   empty: ReactNode;
   rowKey?: (row: T, index: number) => string | number;
-  /** "classic" is the original look (ESG/BFSI lists until their Pass B
-   * restyle); "console" is the superadmin console table: white rounded-xl
-   * card, sticky 11px uppercase header, 52px rows. */
+  /** "classic" is the original look; "console" is the superadmin console
+   * table: white rounded-xl card, sticky 11px uppercase header, 52px rows. */
   appearance?: "classic" | "console";
+  /** Console tables: "compact" trims cell padding for 10+ column lists. */
+  density?: "default" | "compact";
 };
+
+/** Opaque backgrounds for a pinned column, so scrolled cells don't show
+ * through; the inset shadow is its left hairline. #fafbfd is slate-50/70
+ * over white, the row hover colour. */
+const STICKY_TH = "sticky right-0 z-[2] bg-slate-50 shadow-[inset_1px_0_0_#e3e9f2]";
+const STICKY_TD =
+  "sticky right-0 bg-white shadow-[inset_1px_0_0_#e3e9f2] group-hover:bg-[#fafbfd] motion-safe:transition-colors";
 
 function cell<T>(row: T, column: Column<T>): ReactNode {
   if (column.render) return column.render(row);
@@ -38,8 +49,10 @@ export default function DataTable<T>({
   empty,
   rowKey,
   appearance = "classic",
+  density = "default",
 }: DataTableProps<T>) {
   const console = appearance === "console";
+  const cellX = density === "compact" ? "px-3" : "px-4";
 
   if (rows.length === 0) {
     return console ? (
@@ -68,7 +81,9 @@ export default function DataTable<T>({
                     key={column.id ?? column.key}
                     scope="col"
                     className={clsx(
-                      "h-10 border-b border-line px-4 text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-muted uppercase",
+                      "h-10 border-b border-line text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-muted uppercase",
+                      cellX,
+                      column.sticky && STICKY_TH,
                       column.className,
                     )}
                   >
@@ -81,12 +96,17 @@ export default function DataTable<T>({
               {rows.map((row, i) => (
                 <tr
                   key={rowKey ? rowKey(row, i) : i}
-                  className="h-[52px] border-b border-line last:border-0 hover:bg-slate-50/70 motion-safe:transition-colors"
+                  className="group h-[52px] border-b border-line last:border-0 hover:bg-slate-50/70 motion-safe:transition-colors"
                 >
                   {columns.map((column) => (
                     <td
                       key={column.id ?? column.key}
-                      className={clsx("px-4 py-2 text-ink tabular-nums", column.className)}
+                      className={clsx(
+                        "py-2 text-ink tabular-nums",
+                        cellX,
+                        column.sticky && STICKY_TD,
+                        column.className,
+                      )}
                     >
                       {cell(row, column)}
                     </td>

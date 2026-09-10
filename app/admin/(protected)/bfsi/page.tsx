@@ -2,19 +2,48 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Trash2, Upload } from "lucide-react";
+import {
+  ArrowUpRight,
+  FileCheck2,
+  FilePlus2,
+  Hourglass,
+  Landmark,
+  Plus,
+  ScrollText,
+  Search,
+  Send,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import clsx from "clsx";
 import type { BfsiOptions, BfsiSubmission } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { bfsiGrade } from "@/lib/grades";
 import { formatUtc, numberFormat, shortId } from "@/lib/format";
 import DataTable, { type Column } from "@/components/admin/DataTable";
-import Pagination from "@/components/ui/Pagination";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import EmptyState from "@/components/admin/EmptyState";
+import ListFooter from "@/components/admin/ListFooter";
+import { TableSkeleton } from "@/components/admin/Skeleton";
+import { GradeChip, StatusBadge, submissionState } from "@/components/admin/Badge";
+import {
+  CARD,
+  FOCUS_RING,
+  ICON_BUTTON,
+  ICON_BUTTON_DANGER,
+  INPUT,
+} from "@/components/admin/styles";
+import { useAdminStats } from "@/components/admin/useAdminStats";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Alert from "@/components/ui/Alert";
 import AddRecordModal from "./AddRecordModal";
 
 // Port of dashboard/index.php?view=bfsi (bfsi.md §3): 12 columns, 50/page.
+
+const PAGE_SIZE = 50; // esgratings-api app/bfsi/router_admin.py PAGE_SIZE
+const NUM = new Intl.NumberFormat("en-IN");
 
 type ListResponse = {
   items: BfsiSubmission[];
@@ -58,6 +87,10 @@ function fetchSubmissions(page: number, search: string): Promise<ListResponse> {
   return apiFetch<ListResponse>(`/api/admin/bfsi/submissions?${params}`);
 }
 
+function count(n: number): string {
+  return `${NUM.format(n)} submission${n === 1 ? "" : "s"}`;
+}
+
 export default function BfsiSubmissionsPage() {
   const [items, setItems] = useState<BfsiSubmission[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -72,6 +105,7 @@ export default function BfsiSubmissionsPage() {
   const [deleteTarget, setDeleteTarget] = useState<BfsiSubmission | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const stats = useAdminStats();
 
   // Industry labels + the Add New modal's selects.
   useEffect(() => {
@@ -117,6 +151,16 @@ export default function BfsiSubmissionsPage() {
     };
   }, [page, search, refreshToken]);
 
+  function reload() {
+    setRefreshToken((n) => n + 1);
+    stats.refresh();
+  }
+
+  function openDelete(row: BfsiSubmission) {
+    setDeleteError(null);
+    setDeleteTarget(row);
+  }
+
   async function confirmDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -131,7 +175,7 @@ export default function BfsiSubmissionsPage() {
         return;
       }
       setDeleteTarget(null);
-      setRefreshToken((n) => n + 1);
+      reload();
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : "Something went wrong.");
     } finally {
@@ -139,70 +183,119 @@ export default function BfsiSubmissionsPage() {
     }
   }
 
+  const bfsi = stats.data?.bfsi;
+
   const columns: Column<BfsiSubmission>[] = [
     {
       key: "_id",
       header: "ID",
       className: "whitespace-nowrap",
-      render: (row) => <code title={row._id}>…{shortId(row._id)}</code>,
+      render: (row) => (
+        <code title={row._id} className="font-mono text-xs text-muted">
+          …{shortId(row._id)}
+        </code>
+      ),
     },
     {
       key: "created_at",
       header: "Date",
-      className: "whitespace-nowrap",
-      render: (row) => formatUtc(row.created_at, "Y-m-d H:i:s"),
+      className: "whitespace-nowrap text-ink/80",
+      // index.php's "Y-m-d H:i:s", with the time on a second, muted line.
+      render: (row) => {
+        const [date, time] = formatUtc(row.created_at, "Y-m-d H:i:s").split(" ");
+        return (
+          <>
+            {date}
+            {time ? <span className="block text-xs text-muted">{time}</span> : null}
+          </>
+        );
+      },
     },
-    { key: "borrower_name", header: "Borrower" },
+    {
+      key: "borrower_name",
+      header: "Borrower",
+      className: "min-w-[9rem]",
+      render: (row) => (
+        <Link
+          href={`/admin/bfsi/${row._id}`}
+          className={clsx(
+            "rounded font-medium text-ink hover:text-brand motion-safe:transition-colors",
+            FOCUS_RING,
+          )}
+        >
+          {row.borrower_name}
+        </Link>
+      ),
+    },
     {
       key: "industry",
       header: "Industry",
+      className: "min-w-[8rem] text-ink/80",
       render: (row) => options?.industries[row.industry]?.label ?? row.industry,
     },
-    { key: "loan_type", header: "Loan Type" },
+    { key: "loan_type", header: "Loan Type", className: "min-w-[7rem] text-ink/80" },
     {
       key: "loan_amount",
       header: "Amount (₹)",
       className: "whitespace-nowrap",
       render: (row) => `₹${numberFormat(row.loan_amount)}`,
     },
-    { key: "status", header: "Status", render: (row) => row.status ?? "new" },
+    {
+      key: "status",
+      header: "Status",
+      // PHP parity: the raw stored status ("report_generated"), in its stage colour.
+      render: (row) => <StatusBadge state={submissionState(row)} label={row.status ?? "new"} />,
+    },
     {
       key: "e_score",
       header: "E / S / G",
-      className: "whitespace-nowrap",
+      className: "whitespace-nowrap text-ink/80",
       render: esgSplit,
     },
     {
       key: "overall_score",
       header: "Score",
-      render: (row) => <b>{fmt(row.overall_score)}</b>,
+      className: "font-semibold",
+      render: (row) => fmt(row.overall_score),
     },
-    { key: "grade", header: "Grade", render: (row) => row.grade ?? "—" },
-    { key: "grade", id: "category", header: "Category", render: category },
+    { key: "grade", header: "Grade", render: (row) => <GradeChip grade={row.grade} /> },
+    {
+      key: "grade",
+      id: "category",
+      header: "Category",
+      className: "whitespace-nowrap",
+      render: category,
+    },
     {
       key: "_id",
       id: "action",
       header: "Action",
+      className: "text-right",
+      sticky: true,
       render: (row) => (
-        <div className="flex items-center justify-end gap-3 whitespace-nowrap">
+        <div className="flex justify-end gap-1">
           <Link
             href={`/admin/bfsi/${row._id}`}
-            className="font-medium text-calc-blue hover:underline"
+            aria-label={`Open submission from ${row.borrower_name}`}
+            title="Open"
+            className={ICON_BUTTON}
           >
-            Open →
+            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
           </Link>
           <Link
             href={`/admin/bfsi/${row._id}/one-pager`}
-            className="font-medium text-calc-blue hover:underline"
+            aria-label={`1-pager for ${row.borrower_name}`}
+            title="1-pager"
+            className={ICON_BUTTON}
           >
-            1-pager
+            <ScrollText className="h-4 w-4" aria-hidden="true" />
           </Link>
           <button
             type="button"
             aria-label={`Delete submission from ${row.borrower_name}`}
             title="Delete submission"
-            onClick={() => setDeleteTarget(row)}
-            className="text-muted hover:text-grade-d"
+            onClick={() => openDelete(row)}
+            className={ICON_BUTTON_DANGER}
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -212,12 +305,68 @@ export default function BfsiSubmissionsPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-        <h1 className="text-xl font-semibold text-ink">BFSI Submissions</h1>
-        <div className="relative w-full sm:w-72">
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        crumbs={[{ label: "Dashboard", href: "/admin" }, { label: "BFSI Submissions" }]}
+        title="BFSI Submissions"
+        description="Borrower reports from the BFSI calculator, plus records added by hand or imported."
+        actions={
+          <>
+            <Button variant="adminSecondary" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Add New
+            </Button>
+            <Button variant="adminSecondary" href="/admin/bfsi/import">
+              <Upload className="h-4 w-4" aria-hidden="true" />
+              Import File
+            </Button>
+            <Button variant="adminPrimary" href="/admin/bfsi/new">
+              <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+              New BFSI Assessment
+            </Button>
+          </>
+        }
+      />
+
+      <StatStrip
+        items={[
+          {
+            label: "Total submissions",
+            value: bfsi ? NUM.format(bfsi.total) : "—",
+            icon: Landmark,
+            tone: "teal",
+          },
+          {
+            label: "Awaiting analysis",
+            value: bfsi ? NUM.format(bfsi.new + bfsi.failed) : "—",
+            hint: bfsi && bfsi.failed > 0 ? `${NUM.format(bfsi.failed)} failed` : undefined,
+            icon: Hourglass,
+            tone: "amber",
+          },
+          {
+            label: "Reports generated",
+            value: bfsi ? NUM.format(bfsi.reports_generated) : "—",
+            icon: FileCheck2,
+            tone: "green",
+          },
+          {
+            label: "Sent to clients",
+            value: bfsi ? NUM.format(bfsi.sent) : "—",
+            icon: Send,
+            tone: "violet",
+          },
+        ]}
+      />
+
+      <div
+        className={clsx(
+          CARD,
+          "flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between",
+        )}
+      >
+        <div className="relative w-full sm:max-w-sm">
           <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted"
             aria-hidden="true"
           />
           <input
@@ -226,45 +375,60 @@ export default function BfsiSubmissionsPage() {
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search"
             aria-label="Search submissions"
-            className="w-full rounded-full border border-field bg-white py-2 pl-9 pr-4 text-sm text-ink placeholder:text-muted focus:border-calc-blue focus:outline-none focus:ring-2 focus:ring-calc-blue/20"
+            className={clsx(INPUT, "pl-9")}
           />
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="calcBlue" onClick={() => setAddOpen(true)} className="px-4 py-2 text-sm">
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Add New
-        </Button>
-        <Button variant="outline" href="/admin/bfsi/import" className="px-4 py-2 text-sm">
-          <Upload className="h-4 w-4" aria-hidden="true" />
-          Import File
-        </Button>
-        <Button variant="calcNavy" href="/admin/bfsi/new" className="px-4 py-2 text-sm">
-          New BFSI Assessment
-        </Button>
+        {items !== null ? (
+          <p className="px-1 text-sm text-muted tabular-nums" aria-live="polite">
+            {search
+              ? `${NUM.format(total)} ${total === 1 ? "match" : "matches"} for “${search}”`
+              : count(total)}
+          </p>
+        ) : null}
       </div>
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 
       {items === null ? (
-        <div className="rounded-2xl border border-line bg-white px-6 py-12 text-center text-sm text-muted">
-          Loading…
-        </div>
+        error ? null : <TableSkeleton />
       ) : (
         <>
           <DataTable
+            appearance="console"
+            density="compact"
             columns={columns}
             rows={items}
             rowKey={(row) => row._id}
-            empty="No BFSI submissions yet."
+            empty={
+              search ? (
+                <EmptyState
+                  icon={Search}
+                  title="No matches"
+                  description={`No submissions match “${search}”.`}
+                />
+              ) : (
+                <EmptyState
+                  icon={Landmark}
+                  tone="teal"
+                  title="No BFSI submissions yet."
+                  description="Start an assessment, add a record by hand, or import a CSV."
+                  action={
+                    <Button variant="adminPrimary" href="/admin/bfsi/new">
+                      <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+                      New BFSI Assessment
+                    </Button>
+                  }
+                />
+              )
+            }
           />
-          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-            <p className="text-sm text-muted">
-              {total} submission{total === 1 ? "" : "s"}
-            </p>
-            <Pagination page={page} totalPages={pages} onChange={setPage} />
-          </div>
+          <ListFooter
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            pages={pages}
+            onPageChange={setPage}
+          />
         </>
       )}
 
@@ -273,7 +437,7 @@ export default function BfsiSubmissionsPage() {
         onClose={() => setAddOpen(false)}
         onCreated={() => {
           setAddOpen(false);
-          setRefreshToken((n) => n + 1);
+          reload();
         }}
         options={options}
       />
@@ -287,22 +451,21 @@ export default function BfsiSubmissionsPage() {
           {deleteError ? <Alert variant="error">{deleteError}</Alert> : null}
           {/* Verbatim from dashboard/index.php:826-827 (the confirm() text). */}
           <p className="text-sm font-medium text-ink">Delete this submission?</p>
-          <p className="text-sm text-ink">
+          <p className="text-sm text-muted">
             Its uploaded report, AI analysis and cached results will be permanently removed. This
             cannot be undone.
           </p>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="adminSecondary"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
+            >
               Cancel
             </Button>
-            <button
-              type="button"
-              onClick={confirmDelete}
-              disabled={deleting}
-              className="inline-flex items-center justify-center gap-2 rounded-[28px] bg-grade-d px-6 py-3 font-medium text-white hover:bg-grade-d/90 disabled:opacity-60"
-            >
+            <Button variant="adminDanger" onClick={confirmDelete} disabled={deleting}>
               {deleting ? "Deleting…" : "Delete"}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

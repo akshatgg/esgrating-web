@@ -1,9 +1,10 @@
 // Small display-formatting helpers shared by the admin list/detail views.
 
-/** "14 Oct 2025" — the admin tables' date format. */
+/** "14 Oct 2025" — the admin tables' date format. Goes through parseApiDate:
+ * the API's naive-UTC timestamps would otherwise be read as local time. */
 export function formatDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
+  const d = parseApiDate(iso);
+  if (!d) return iso;
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 

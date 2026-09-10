@@ -70,6 +70,8 @@ export default function AddRecordModal({ open, onClose, onCreated, options }: Ad
 
   function close() {
     if (submitting) return;
+    // Cancel / Esc / backdrop discard the draft, so the next Add New starts blank.
+    setForm(INITIAL);
     setError(null);
     onClose();
   }
@@ -256,14 +258,14 @@ export default function AddRecordModal({ open, onClose, onCreated, options }: Ad
           </div>
         ) : null}
 
-        <div className="col-span-full flex justify-end gap-3">
-          <Button variant="outline" onClick={close} disabled={submitting}>
+        <div className="col-span-full flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+          <Button variant="adminSecondary" onClick={close} disabled={submitting}>
             Cancel
           </Button>
-          <Button type="submit" variant="calcBlue" disabled={submitting || !options}>
+          <Button type="submit" variant="adminPrimary" disabled={submitting || !options}>
             {submitting ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
                 Saving…
               </>
             ) : (

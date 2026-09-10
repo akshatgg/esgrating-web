@@ -3,15 +3,41 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Search, Trash2 } from "lucide-react";
+import {
+  ArrowUpRight,
+  FileCheck2,
+  FilePlus2,
+  FileText,
+  Hourglass,
+  Search,
+  Send,
+  Trash2,
+} from "lucide-react";
+import clsx from "clsx";
 import type { EsgSubmission } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { formatDate, formatScore, shortId } from "@/lib/format";
 import DataTable, { type Column } from "@/components/admin/DataTable";
-import Pagination from "@/components/ui/Pagination";
+import PageHeader from "@/components/admin/PageHeader";
+import StatStrip from "@/components/admin/StatStrip";
+import EmptyState from "@/components/admin/EmptyState";
+import ListFooter from "@/components/admin/ListFooter";
+import { TableSkeleton } from "@/components/admin/Skeleton";
+import { GradeChip, StatusBadge, submissionState } from "@/components/admin/Badge";
+import {
+  CARD,
+  FOCUS_RING,
+  ICON_BUTTON,
+  ICON_BUTTON_DANGER,
+  INPUT,
+} from "@/components/admin/styles";
+import { useAdminStats } from "@/components/admin/useAdminStats";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Alert from "@/components/ui/Alert";
+
+const PAGE_SIZE = 50; // esgratings-api app/esg/router_admin.py PAGE_SIZE
+const NUM = new Intl.NumberFormat("en-IN");
 
 type ListResponse = {
   items: EsgSubmission[];
@@ -37,6 +63,10 @@ function fetchSubmissions(page: number, search: string): Promise<ListResponse> {
   return apiFetch<ListResponse>(`/api/admin/esg/submissions?${params}`);
 }
 
+function count(n: number): string {
+  return `${NUM.format(n)} submission${n === 1 ? "" : "s"}`;
+}
+
 function EsgSubmissionsList() {
   // The console's top-bar search lands here as `?search=…`; seed the box from
   // it, and follow it if the admin searches again while already on this page.
@@ -57,6 +87,7 @@ function EsgSubmissionsList() {
   const [deleteTarget, setDeleteTarget] = useState<EsgSubmission | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const stats = useAdminStats();
 
   // Debounce the search box so every keystroke doesn't fire a request.
   useEffect(() => {
@@ -89,6 +120,11 @@ function EsgSubmissionsList() {
     };
   }, [page, search, refreshToken]);
 
+  function openDelete(row: EsgSubmission) {
+    setDeleteError(null);
+    setDeleteTarget(row);
+  }
+
   async function confirmDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -97,6 +133,7 @@ function EsgSubmissionsList() {
       await apiFetch(`/api/admin/esg/submissions/${deleteTarget._id}`, { method: "DELETE" });
       setDeleteTarget(null);
       setRefreshToken((n) => n + 1);
+      stats.refresh();
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : "Something went wrong.");
     } finally {
@@ -104,48 +141,85 @@ function EsgSubmissionsList() {
     }
   }
 
+  const esg = stats.data?.esg;
+
   const columns: Column<EsgSubmission>[] = [
     {
       key: "_id",
       header: "ID",
-      render: (row) => <span title={row._id}>{shortId(row._id)}</span>,
+      className: "whitespace-nowrap",
+      render: (row) => (
+        <span title={row._id} className="font-mono text-xs text-muted">
+          {shortId(row._id)}
+        </span>
+      ),
     },
-    { key: "created_at", header: "Date", render: (row) => formatDate(row.created_at) },
-    { key: "name", header: "Name" },
-    { key: "company_name", header: "Company" },
-    { key: "email", header: "Email" },
-    { key: "mobile_number", header: "Mobile" },
-    { key: "report_year", header: "FY" },
-    { key: "status", header: "Status", render: (row) => statusLabel(row) },
+    {
+      key: "created_at",
+      header: "Date",
+      className: "whitespace-nowrap text-ink/80",
+      render: (row) => formatDate(row.created_at),
+    },
+    { key: "name", header: "Name", className: "min-w-[8rem]" },
+    {
+      key: "company_name",
+      header: "Company",
+      className: "min-w-[10rem]",
+      render: (row) => (
+        <Link
+          href={`/admin/esg/${row._id}`}
+          className={clsx(
+            "rounded font-medium text-ink hover:text-brand motion-safe:transition-colors",
+            FOCUS_RING,
+          )}
+        >
+          {row.company_name}
+        </Link>
+      ),
+    },
+    { key: "email", header: "Email", className: "text-ink/80" },
+    { key: "mobile_number", header: "Mobile", className: "whitespace-nowrap text-ink/80" },
+    { key: "report_year", header: "FY", className: "whitespace-nowrap" },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => <StatusBadge state={submissionState(row)} label={statusLabel(row)} />,
+    },
     {
       key: "final",
       id: "score",
       header: "Score",
+      className: "font-semibold",
       render: (row) => formatScore(row.final?.composite_score),
     },
     {
       key: "final",
       id: "grade",
       header: "Grade",
-      render: (row) => row.final?.composite_score_performance ?? "—",
+      render: (row) => <GradeChip grade={row.final?.composite_score_performance} />,
     },
     {
       key: "_id",
       id: "action",
       header: "Action",
+      className: "text-right",
+      sticky: true,
       render: (row) => (
-        <div className="flex items-center justify-end gap-3 whitespace-nowrap">
+        <div className="flex justify-end gap-1">
           <Link
             href={`/admin/esg/${row._id}`}
-            className="font-medium text-calc-blue hover:underline"
+            aria-label={`Open submission from ${row.company_name}`}
+            title="Open"
+            className={ICON_BUTTON}
           >
-            Open →
+            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
           </Link>
           <button
             type="button"
             aria-label={`Delete submission from ${row.company_name}`}
-            onClick={() => setDeleteTarget(row)}
-            className="text-muted hover:text-grade-d"
+            title="Delete submission"
+            onClick={() => openDelete(row)}
+            className={ICON_BUTTON_DANGER}
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -155,12 +229,58 @@ function EsgSubmissionsList() {
   ];
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-        <h1 className="text-xl font-semibold text-ink">ESG Submissions</h1>
-        <div className="relative w-full sm:w-72">
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        crumbs={[{ label: "Dashboard", href: "/admin" }, { label: "ESG Submissions" }]}
+        title="ESG Submissions"
+        description="Reports uploaded through the ESG calculator, and the ratings built from them."
+        actions={
+          <Button variant="adminPrimary" href="/admin/esg/new">
+            <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+            New ESG Assessment
+          </Button>
+        }
+      />
+
+      <StatStrip
+        items={[
+          {
+            label: "Total submissions",
+            value: esg ? NUM.format(esg.total) : "—",
+            icon: FileText,
+            tone: "brand",
+          },
+          {
+            label: "Awaiting analysis",
+            value: esg ? NUM.format(esg.new + esg.failed) : "—",
+            hint: esg && esg.failed > 0 ? `${NUM.format(esg.failed)} failed` : undefined,
+            icon: Hourglass,
+            tone: "amber",
+          },
+          {
+            label: "Reports generated",
+            value: esg ? NUM.format(esg.reports_generated) : "—",
+            icon: FileCheck2,
+            tone: "green",
+          },
+          {
+            label: "Sent to clients",
+            value: esg ? NUM.format(esg.sent) : "—",
+            icon: Send,
+            tone: "violet",
+          },
+        ]}
+      />
+
+      <div
+        className={clsx(
+          CARD,
+          "flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between",
+        )}
+      >
+        <div className="relative w-full sm:max-w-sm">
           <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted"
             aria-hidden="true"
           />
           <input
@@ -169,29 +289,59 @@ function EsgSubmissionsList() {
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search name, company or email"
             aria-label="Search submissions"
-            className="w-full rounded-full border border-field bg-white py-2 pl-9 pr-4 text-sm text-ink placeholder:text-muted focus:border-calc-blue focus:outline-none focus:ring-2 focus:ring-calc-blue/20"
+            className={clsx(INPUT, "pl-9")}
           />
         </div>
+        {items !== null ? (
+          <p className="px-1 text-sm text-muted tabular-nums" aria-live="polite">
+            {search
+              ? `${NUM.format(total)} ${total === 1 ? "match" : "matches"} for “${search}”`
+              : count(total)}
+          </p>
+        ) : null}
       </div>
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 
       {items === null ? (
-        <div className="rounded-2xl border border-line bg-white px-6 py-12 text-center text-sm text-muted">
-          Loading…
-        </div>
+        error ? null : <TableSkeleton />
       ) : (
         <>
           <DataTable
+            appearance="console"
+            density="compact"
             columns={columns}
             rows={items}
             rowKey={(row) => row._id}
-            empty="No ESG submissions yet."
+            empty={
+              search ? (
+                <EmptyState
+                  icon={Search}
+                  title="No matches"
+                  description={`No submissions match “${search}”.`}
+                />
+              ) : (
+                <EmptyState
+                  icon={FileText}
+                  title="No ESG submissions yet."
+                  description="Reports sent through the ESG calculator show up here."
+                  action={
+                    <Button variant="adminPrimary" href="/admin/esg/new">
+                      <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+                      New ESG Assessment
+                    </Button>
+                  }
+                />
+              )
+            }
           />
-          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-            <p className="text-sm text-muted">{total} submission{total === 1 ? "" : "s"}</p>
-            <Pagination page={page} totalPages={pages} onChange={setPage} />
-          </div>
+          <ListFooter
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            pages={pages}
+            onPageChange={setPage}
+          />
         </>
       )}
 
@@ -206,18 +356,17 @@ function EsgSubmissionsList() {
             Delete this submission? Its uploaded report and analysis will be permanently removed.
             This cannot be undone.
           </p>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="adminSecondary"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
+            >
               Cancel
             </Button>
-            <button
-              type="button"
-              onClick={confirmDelete}
-              disabled={deleting}
-              className="inline-flex items-center justify-center gap-2 rounded-[28px] bg-grade-d px-6 py-3 font-medium text-white hover:bg-grade-d/90 disabled:opacity-60"
-            >
+            <Button variant="adminDanger" onClick={confirmDelete} disabled={deleting}>
               {deleting ? "Deleting…" : "Delete"}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
@@ -227,7 +376,7 @@ function EsgSubmissionsList() {
 
 export default function EsgSubmissionsPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<TableSkeleton />}>
       <EsgSubmissionsList />
     </Suspense>
   );
