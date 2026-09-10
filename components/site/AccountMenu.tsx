@@ -1,30 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ChevronDown,
-  FileCheck2,
-  Landmark,
-  LayoutDashboard,
-  ListOrdered,
-  LogIn,
-  LogOut,
-  MessageSquare,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronDown, LogIn, LogOut } from "lucide-react";
 import clsx from "clsx";
 import { ADMIN_LOGIN_HREF } from "@/content/site";
 import { apiFetch } from "@/lib/api";
+import { ADMIN_PAGES, type AdminNavItem } from "@/lib/admin-nav";
+import { AccountAvatar } from "@/components/ui/Avatar";
+import { useMenu } from "@/components/ui/useMenu";
 
-export const ACCOUNT_LINKS: { label: string; href: string; icon: LucideIcon }[] = [
-  { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "ESG Submissions", href: "/admin/esg", icon: FileCheck2 },
-  { label: "BFSI Submissions", href: "/admin/bfsi", icon: Landmark },
-  { label: "ESG Rating List", href: "/admin/ratings", icon: ListOrdered },
-  { label: "Messages", href: "/admin/messages", icon: MessageSquare },
-];
+export { AccountAvatar };
+
+/** The superadmin console's pages, as listed in the navbar account menu. */
+export const ACCOUNT_LINKS: AdminNavItem[] = ADMIN_PAGES;
 
 export type AdminSession = {
   status: "checking" | "anonymous" | "authenticated";
@@ -75,45 +65,17 @@ export function useAdminSession(): AdminSession {
   return { ...state, logout };
 }
 
-export function AccountAvatar({ name, className }: { name: string; className?: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={clsx(
-        "grid h-8 w-8 shrink-0 place-items-center rounded-full bg-linear-to-br from-calc-blue to-calc-navy text-sm font-semibold text-white uppercase shadow-[inset_0_0_0_1px_rgba(255,255,255,0.25)]",
-        className,
-      )}
-    >
-      {name.trim().charAt(0) || "A"}
-    </span>
-  );
-}
-
 const FOCUS_RING = "outline-none focus-visible:ring-2 focus-visible:ring-calc-blue/60";
 
 /** Right-hand slot of the navbar pill: a same-size placeholder while the
  * session is being checked, the "Login" ghost pill when logged out, and an
  * avatar button + glass account menu when a superadmin is signed in. */
 export default function AccountMenu({ session }: { session: AdminSession }) {
-  const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
+  const menu = useMenu({ wrapRef, buttonRef, menuRef });
   const menuId = useId();
-
-  const menuItems = () =>
-    Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
-
-  // On open: focus the first item and close on any outside press.
-  useEffect(() => {
-    if (!open) return;
-    menuItems()[0]?.focus();
-    const onPointerDown = (event: PointerEvent) => {
-      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open]);
 
   if (session.status === "checking") {
     return (
@@ -141,58 +103,24 @@ export default function AccountMenu({ session }: { session: AdminSession }) {
 
   const username = session.username ?? "admin";
 
-  const close = (returnFocus: boolean) => {
-    setOpen(false);
-    if (returnFocus) buttonRef.current?.focus();
-  };
-
-  const onMenuKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
-    const items = menuItems();
-    const index = items.indexOf(document.activeElement as HTMLElement);
-    let next: number | null = null;
-    if (event.key === "ArrowDown") next = (index + 1) % items.length;
-    else if (event.key === "ArrowUp") next = (index - 1 + items.length) % items.length;
-    else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = items.length - 1;
-    else if (event.key === "Escape") {
-      event.preventDefault();
-      close(true);
-      return;
-    }
-    if (next !== null) {
-      event.preventDefault();
-      items[next]?.focus();
-    }
-  };
-
   return (
     <div
       ref={wrapRef}
       className="relative hidden lg:block"
-      onBlur={(event) => {
-        // Tab past the last item (or anywhere outside) closes the menu.
-        if (open && !wrapRef.current?.contains(event.relatedTarget as Node | null)) setOpen(false);
-      }}
+      // Tab past the last item (or anywhere outside) closes the menu.
+      onBlur={menu.onWrapBlur}
     >
       <button
         ref={buttonRef}
         type="button"
         aria-haspopup="menu"
-        aria-expanded={open}
+        aria-expanded={menu.open}
         aria-label={`Account menu for ${username}`}
-        onClick={() => setOpen((v) => !v)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" && !open) {
-            event.preventDefault();
-            setOpen(true);
-          } else if (event.key === "Escape" && open) {
-            event.preventDefault();
-            close(true);
-          }
-        }}
+        onClick={menu.toggle}
+        onKeyDown={menu.onButtonKeyDown}
         className={clsx(
           "flex h-10 items-center gap-1.5 rounded-full border border-calc-navy/10 bg-white/50 py-1 pr-2 pl-1 hover:bg-white/90 motion-safe:transition-colors sm:gap-2 sm:pr-3",
-          open && "bg-white/90",
+          menu.open && "bg-white/90",
           FOCUS_RING,
         )}
       >
@@ -204,12 +132,12 @@ export default function AccountMenu({ session }: { session: AdminSession }) {
           aria-hidden="true"
           className={clsx(
             "h-4 w-4 text-ink/60 motion-safe:transition-transform motion-safe:duration-200",
-            open && "rotate-180",
+            menu.open && "rotate-180",
           )}
         />
       </button>
 
-      {open && (
+      {menu.open && (
         <div className="glass-panel glass-pop absolute top-full right-0 mt-3 w-64 rounded-2xl p-2 lg:mt-4">
           <div className="flex items-center gap-3 px-3 py-2.5">
             <AccountAvatar name={username} className="h-9 w-9" />
@@ -224,7 +152,7 @@ export default function AccountMenu({ session }: { session: AdminSession }) {
             id={menuId}
             role="menu"
             aria-label="Account"
-            onKeyDown={onMenuKeyDown}
+            onKeyDown={menu.onMenuKeyDown}
             className="flex flex-col gap-0.5"
           >
             {ACCOUNT_LINKS.map(({ label, href, icon: Icon }) => (
@@ -232,7 +160,7 @@ export default function AccountMenu({ session }: { session: AdminSession }) {
                 <Link
                   href={href}
                   role="menuitem"
-                  onClick={() => setOpen(false)}
+                  onClick={() => menu.setOpen(false)}
                   className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-ink/85 outline-none hover:bg-white/80 hover:text-calc-navy focus-visible:bg-white/80 focus-visible:text-calc-navy focus-visible:ring-2 focus-visible:ring-calc-blue/60"
                 >
                   <Icon className="h-4 w-4 text-calc-blue" aria-hidden="true" />
@@ -246,7 +174,7 @@ export default function AccountMenu({ session }: { session: AdminSession }) {
                 type="button"
                 role="menuitem"
                 onClick={() => {
-                  setOpen(false);
+                  menu.setOpen(false);
                   void session.logout();
                 }}
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-grade-d outline-none hover:bg-white/80 focus-visible:bg-white/80 focus-visible:ring-2 focus-visible:ring-calc-blue/60"

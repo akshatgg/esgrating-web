@@ -8,10 +8,8 @@ import { LogIn, LogOut, X } from "lucide-react";
 import clsx from "clsx";
 import { ADMIN_LOGIN_HREF, NAV, CONTACT } from "@/content/site";
 import { isActivePath } from "@/lib/nav";
+import { useDialog } from "@/components/ui/useDialog";
 import { ACCOUNT_LINKS, AccountAvatar, type AdminSession } from "./AccountMenu";
-
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
 
 type MobileNavProps = {
   open: boolean;
@@ -30,59 +28,9 @@ export default function MobileNav({ open, onClose, triggerRef, session }: Mobile
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Lock body scroll while open, compensating for the scrollbar so the
-  // page doesn't shift width when it disappears.
-  useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    const previousPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    document.body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.body.style.paddingRight = previousPaddingRight;
-    };
-  }, [open]);
-
-  // Move focus into the panel, trap Tab, close on Esc, restore focus on close.
-  useEffect(() => {
-    if (!open) return;
-    const panel = panelRef.current;
-    if (!panel) return;
-
-    const focusables = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    first?.focus();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab" || focusables.length === 0) return;
-
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    const trigger = triggerRef.current;
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      trigger?.focus();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  // Lock body scroll, move focus into the panel, trap Tab, close on Esc and
+  // return focus to the hamburger on close.
+  useDialog({ open, panelRef, onClose, returnFocusRef: triggerRef });
 
   return (
     <div

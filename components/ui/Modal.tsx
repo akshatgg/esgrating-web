@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 import clsx from "clsx";
-
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+import { useDialog } from "./useDialog";
 
 type ModalProps = {
   open: boolean;
@@ -15,49 +13,12 @@ type ModalProps = {
   className?: string;
 };
 
-/** A centered, focus-trapped dialog. Mirrors `components/site/MobileNav.tsx`'s
- * overlay/scroll-lock/focus-trap behaviour for the admin dashboard's forms
- * and confirmations. */
+/** A centered, focus-trapped dialog for the admin dashboard's forms and
+ * confirmations. Scroll lock, focus trap, Escape and focus return come from
+ * `useDialog` (shared with the site's mobile nav and the admin drawer). */
 export default function Modal({ open, onClose, title, children, className }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const panel = panelRef.current;
-    const focusables = panel?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-    const first = focusables?.[0];
-    const last = focusables?.[focusables.length - 1];
-    (first ?? panel)?.focus();
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab" || !focusables || focusables.length === 0) return;
-
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  useDialog({ open, panelRef, onClose });
 
   if (!open) return null;
 
@@ -87,7 +48,7 @@ export default function Modal({ open, onClose, title, children, className }: Mod
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-bg-soft hover:text-ink"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-bg-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
