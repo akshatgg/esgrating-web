@@ -9,6 +9,7 @@ import type {
 } from "@/lib/types";
 import { bfsiGrade, GRADE_COLORS } from "@/lib/grades";
 import { asArray, formatUtc, numberFormat, phpFloat } from "@/lib/format";
+import { LIST_MAX } from "@/lib/reportEdits";
 import Doughnut from "@/components/reports/Doughnut";
 import {
   EditableHeading,
@@ -80,12 +81,17 @@ function isReason(r: BfsiReason | string): r is BfsiReason {
 
 type Keywords = Partial<Record<BfsiCategory, string[]>>;
 
+/** Server pillar grades (`effective.grades`), used in edit and edited views. */
+export type PillarGrades = Partial<Record<BfsiCategory, { grade: Grade; label: string }>>;
+
 type BfsiDetailedReportProps = {
   submission: BfsiSubmission;
   /** From the API — recomputed from the stored E/S/G (report.php:17). */
   overall: BfsiOverall;
   /** `bfsi_recommendation(grade)`, from the API. */
   recommendation: string;
+  /** Pillar grades from the server; without them the display ladder is used. */
+  grades?: PillarGrades;
 };
 
 /** Port of report.php's `#bfsiReport` card (sections 1–9, bfsi.md §3). The ref
@@ -94,7 +100,7 @@ type BfsiDetailedReportProps = {
  * lists, keywords, the logo and the pillar scores become inline editors and the
  * Scoring Rationale becomes the editable page-scores table. */
 const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
-  function BfsiDetailedReport({ submission: sub, overall, recommendation }, ref) {
+  function BfsiDetailedReport({ submission: sub, overall, recommendation, grades }, ref) {
     const ai = sub.ai_analysis;
     const edit = useReportEdit();
     const editing = edit?.editing ?? false;
@@ -103,8 +109,13 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
     const improvements = useField("top_improvements", asArray(ai?.top_improvements));
     const climate = useField("climate_risk", ai?.climate_risk ?? "");
     const governance = useField("governance_summary", ai?.governance_summary ?? "");
-    const keywords = useField<Keywords>("keywords", ai?.keywords ?? {});
-    const negKeywords = useField<Keywords>("negative_keywords", ai?.negative_keywords ?? {});
+    // Category overrides lay over the report's own keywords (as on the server),
+    // so a category without an override keeps its AI list.
+    const keywords: Keywords = { ...(ai?.keywords ?? {}), ...useField<Keywords>("keywords", {}) };
+    const negKeywords: Keywords = {
+      ...(ai?.negative_keywords ?? {}),
+      ...useField<Keywords>("negative_keywords", {}),
+    };
     const decision = useField("recommendation", recommendation);
     if (!ai) return null;
 
@@ -198,7 +209,7 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
                     <b>{numberFormat((max * score) / 100, 2)}</b>
                   </td>
                   <td>{phpFloat(max)}</td>
-                  <td>{bfsiGrade(score).grade}</td>
+                  <td>{(grades?.[p.cat] ?? bfsiGrade(score)).grade}</td>
                 </tr>
               );
             })}
@@ -235,7 +246,13 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
         {/* 5. Risks, improvements, climate, governance */}
         <EditableHeading k="top_risks">Top 5 Risks</EditableHeading>
         <ul className={styles.risks}>
-          <EditableListItems k="top_risks" label="Risk" items={risks.slice(0, 5)} max={5} />
+          <EditableListItems
+            k="top_risks"
+            label="Risk"
+            items={editing ? risks : risks.slice(0, 5)}
+            max={LIST_MAX}
+            shown={5}
+          />
         </ul>
 
         <EditableHeading k="top_improvements">Top 5 Improvements</EditableHeading>
@@ -243,8 +260,9 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
           <EditableListItems
             k="top_improvements"
             label="Improvement"
-            items={improvements.slice(0, 5)}
-            max={5}
+            items={editing ? improvements : improvements.slice(0, 5)}
+            max={LIST_MAX}
+            shown={5}
           />
         </ul>
 

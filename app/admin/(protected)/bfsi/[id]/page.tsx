@@ -33,7 +33,7 @@ import SendReportButton from "@/components/admin/SendReportButton";
 import PageHeader from "@/components/admin/PageHeader";
 import DetailRail from "@/components/admin/DetailRail";
 import ReportPreview from "@/components/admin/ReportPreview";
-import ReportEditBar from "@/components/admin/ReportEditBar";
+import ReportEditBar, { ReportEditAnnouncer } from "@/components/admin/ReportEditBar";
 import { useReportEditor } from "@/components/admin/useReportEditor";
 import { DetailSkeleton } from "@/components/admin/Skeleton";
 import {
@@ -187,14 +187,20 @@ export default function BfsiSubmissionDetailPage() {
   const live = editor.liveEffective
     ? bfsiView(sub, editor.liveEffective, editor.pages)
     : overall
-      ? { submission: sub, overall, recommendation: recommendation ?? "" }
+      ? { submission: sub, overall, recommendation: recommendation ?? "", grades: undefined }
       : null;
   const saved =
     editor.report?.edited
       ? bfsiView(sub, editor.report.effective, editor.report.pages)
       : overall
-        ? { submission: sub, overall, recommendation: recommendation ?? "" }
+        ? { submission: sub, overall, recommendation: recommendation ?? "", grades: undefined }
         : null;
+  // Download and Send render the saved edits, so they wait for GET …/report.
+  const reportGate = editor.report
+    ? null
+    : editor.loadError
+      ? "The saved report couldn't be loaded."
+      : "Loading the saved report…";
 
   return (
     <div className="flex flex-col gap-5">
@@ -227,6 +233,7 @@ export default function BfsiSubmissionDetailPage() {
           )}
         >
           {actionError ? <Alert variant="error">{actionError}</Alert> : null}
+          <ReportEditAnnouncer message={editor.announcement} />
 
           {!showReport || !ai || !live || !saved ? (
             <AnalyzePanel
@@ -247,11 +254,21 @@ export default function BfsiSubmissionDetailPage() {
                 </Alert>
               ) : null}
 
+              {editor.loadError ? (
+                <Alert variant="error">
+                  Couldn&apos;t load the saved report ({editor.loadError}). Download and Send stay off
+                  until it loads, so they never go out without your edits.{" "}
+                  <button type="button" className="font-medium underline" onClick={editor.refresh}>
+                    Retry
+                  </button>
+                </Alert>
+              ) : null}
               {editing ? (
                 <ReportEditBar
                   dirty={editor.dirty}
                   saving={editor.saving}
                   previewing={editor.previewing}
+                  logoBusy={editor.logoBusy}
                   error={editor.error}
                   edited={!!editor.report?.edited}
                   onSave={editor.save}
@@ -265,7 +282,12 @@ export default function BfsiSubmissionDetailPage() {
                   className={clsx(CARD, "flex flex-wrap items-center justify-between gap-2 p-3")}
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="adminPrimary" onClick={handleDownload} disabled={downloading}>
+                    <Button
+                      variant="adminPrimary"
+                      onClick={handleDownload}
+                      disabled={downloading || !!reportGate}
+                      title={reportGate ?? undefined}
+                    >
                       <Download className="h-4 w-4" aria-hidden="true" />
                       {downloading ? "Preparing…" : "Download Detailed Report (PDF)"}
                     </Button>
@@ -278,6 +300,7 @@ export default function BfsiSubmissionDetailPage() {
                       endpoint={`/api/admin/bfsi/submissions/${id}/send`}
                       email={sub.contact_email}
                       fieldName="pdfs"
+                      unavailableReason={reportGate}
                     />
                     {editor.unavailable ? null : (
                       <Button
@@ -318,6 +341,7 @@ export default function BfsiSubmissionDetailPage() {
                         submission={live.submission}
                         overall={live.overall}
                         recommendation={live.recommendation}
+                        grades={live.grades}
                       />
                     </ReportEditProvider>
                   </div>
@@ -338,6 +362,7 @@ export default function BfsiSubmissionDetailPage() {
                     submission={saved.submission}
                     overall={saved.overall}
                     recommendation={saved.recommendation}
+                    grades={saved.grades}
                   />
                   <BfsiOnePager
                     ref={pdfOnePagerRef}
@@ -345,6 +370,7 @@ export default function BfsiSubmissionDetailPage() {
                     overall={saved.overall}
                     previous={previous}
                     industryLabel={industry_label}
+                    grades={saved.grades}
                   />
                 </ReportEditProvider>
               </div>

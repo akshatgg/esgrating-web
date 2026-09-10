@@ -10,14 +10,17 @@
 import {
   createContext,
   useContext,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
   type ElementType,
+  type InputHTMLAttributes,
   type KeyboardEvent,
   type ReactNode,
+  type TextareaHTMLAttributes,
 } from "react";
-import type { Cat, Pages, ReportEdits } from "@/lib/reportEdits";
+import type { Cat, Pages, PagesEditable, ReportEdits } from "@/lib/reportEdits";
 import s from "@/components/reports/edit/Editable.module.css";
 
 export type ReportEditApi = {
@@ -31,6 +34,8 @@ export type ReportEditApi = {
   /** Whether the server treats a pillar as manually set (`effective.pillar_manual`). */
   pillarManual: Partial<Record<Cat, boolean>>;
   pages: Pages;
+  /** Per category: page scores editable (missing = editable). */
+  pagesEditable?: PagesEditable;
   /** Custom logo src, or null for the default. */
   logoSrc: string | null;
   logoBusy?: boolean;
@@ -95,20 +100,85 @@ export function EditableHeading({ k, as: Tag = "h3", className, style, children 
       </Tag>
     );
   }
-  const draft = ctx.headings[k];
   return (
     <Tag className={className} style={style}>
-      <input
-        type="text"
+      <DraftInput
         className={s.input}
         aria-label={`Heading: ${children}`}
         maxLength={200}
         placeholder={children}
-        value={draft ?? children}
-        onChange={(e) => ctx.setHeading?.(k, e.target.value)}
+        value={ctx.headings[k] ?? children}
+        onCommit={(v) => ctx.setHeading?.(k, v)}
       />
     </Tag>
   );
+}
+
+// --- Draft text inputs -------------------------------------------------------------
+
+/** Keeps what's typed while the field has focus. Blank commits "no override",
+ * which makes `value` fall back to the default; without a local draft the
+ * input would snap back to that default mid-typing. On blur the input shows
+ * `value` again (the override, or the default when left blank). */
+function useDraftText(value: string, onCommit: (v: string) => void) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return {
+    value: draft ?? value,
+    onFocus: () => setDraft(value),
+    onBlur: () => setDraft(null),
+    onChange: (v: string) => {
+      setDraft(v);
+      onCommit(v);
+    },
+  };
+}
+
+type DraftProps<T> = Omit<T, "value" | "onChange" | "onFocus" | "onBlur"> & {
+  value: string;
+  onCommit: (v: string) => void;
+};
+
+function DraftInput({ value, onCommit, ...rest }: DraftProps<InputHTMLAttributes<HTMLInputElement>>) {
+  const d = useDraftText(value, onCommit);
+  return (
+    <input
+      type="text"
+      {...rest}
+      value={d.value}
+      onFocus={d.onFocus}
+      onBlur={d.onBlur}
+      onChange={(e) => d.onChange(e.target.value)}
+    />
+  );
+}
+
+export function DraftTextarea({ value, onCommit, ...rest }: DraftProps<TextareaHTMLAttributes<HTMLTextAreaElement>>) {
+  const d = useDraftText(value, onCommit);
+  return (
+    <AutoTextarea
+      {...rest}
+      value={d.value}
+      onFocus={d.onFocus}
+      onBlur={d.onBlur}
+      onChange={(e) => d.onChange(e.target.value)}
+    />
+  );
+}
+
+const fieldSizingSupported = () =>
+  typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("field-sizing", "content");
+
+/** A textarea that grows with its content: CSS `field-sizing: content` where
+ * supported, else its height is set from `scrollHeight` on every change. */
+export function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || fieldSizingSupported()) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [props.value]);
+  return <textarea ref={ref} {...props} />;
 }
 
 // --- Text ------------------------------------------------------------------------
@@ -128,40 +198,32 @@ type TextProps = {
 export function EditableText({ k, label, value, multiline, children }: TextProps) {
   const ctx = useContext(Ctx);
   if (!ctx?.editing) return <>{children ?? value}</>;
-  const onChange = (v: string) => ctx.setField?.(k, v);
+  const onCommit = (v: string) => ctx.setField?.(k, v);
   return multiline ? (
-    <textarea
-      className={s.input}
-      aria-label={label}
-      value={value}
-      rows={2}
-      onChange={(e) => onChange(e.target.value)}
-    />
+    <DraftTextarea className={s.input} aria-label={label} value={value} rows={2} onCommit={onCommit} />
   ) : (
-    <input
-      type="text"
-      className={s.input}
-      aria-label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
+    <DraftInput className={s.input} aria-label={label} value={value} onCommit={onCommit} />
   );
 }
 
 // --- Lists -------------------------------------------------------------------------
 
 /** `<li>` items for a list field. Edit mode: an input per item with remove,
- * plus an add button (up to `max`). The caller keeps the `<ul>`. */
+ * plus an add button (up to `max`). The caller keeps the `<ul>`, and passes the
+ * full list in edit mode (so nothing is dropped on save) and the rendered slice
+ * otherwise. `shown`: how many items the report renders, noted when exceeded. */
 export function EditableListItems({
   k,
   label,
   items,
   max,
+  shown,
 }: {
   k: string;
   label: string;
   items: string[];
   max?: number;
+  shown?: number;
 }) {
   const ctx = useContext(Ctx);
   if (!ctx?.editing) {
@@ -180,7 +242,7 @@ export function EditableListItems({
       {items.map((item, i) => (
         <li key={i}>
           <div className={s.row}>
-            <textarea
+            <AutoTextarea
               className={s.input}
               rows={1}
               aria-label={`${label} ${i + 1}`}
@@ -208,6 +270,9 @@ export function EditableListItems({
         >
           + Add {label.toLowerCase()}
         </button>
+        {shown !== undefined && items.length > shown ? (
+          <span className={s.note}> Only the first {shown} appear in the report.</span>
+        ) : null}
       </li>
     </>
   );
@@ -322,6 +387,7 @@ export function EditableLogo({
         }}
       />
       {ctx.logoBusy ? <span className={s.tag}>Uploading…</span> : null}
+      <span className={s.note}>Logo changes save immediately.</span>
       {ctx.logoSrc ? (
         <button type="button" className={s.link} onClick={() => ctx.useDefaultLogo?.()}>
           Use default logo

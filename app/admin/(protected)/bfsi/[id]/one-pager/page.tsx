@@ -13,7 +13,7 @@ import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/admin/PageHeader";
 import ReportPreview from "@/components/admin/ReportPreview";
-import ReportEditBar from "@/components/admin/ReportEditBar";
+import ReportEditBar, { ReportEditAnnouncer } from "@/components/admin/ReportEditBar";
 import { useReportEditor } from "@/components/admin/useReportEditor";
 import IconTile from "@/components/admin/IconTile";
 import { EditedBadge } from "@/components/admin/Badge";
@@ -85,6 +85,12 @@ export default function BfsiOnePagerPage() {
   ];
   const ready = !!detail?.submission.ai_analysis && !!detail?.overall;
   const editing = editor.editing;
+  // The download renders the saved edits, so it waits for GET …/report.
+  const reportGate = editor.report
+    ? null
+    : editor.loadError
+      ? "The saved report couldn't be loaded."
+      : "Loading the saved report…";
 
   const header = (
     <PageHeader
@@ -106,7 +112,12 @@ export default function BfsiOnePagerPage() {
               </Button>
             ) : null}
             {ready ? (
-              <Button variant="adminPrimary" onClick={handleDownload} disabled={downloading}>
+              <Button
+                variant="adminPrimary"
+                onClick={handleDownload}
+                disabled={downloading || !!reportGate}
+                title={reportGate ?? undefined}
+              >
                 <Download className="h-4 w-4" aria-hidden="true" />
                 {downloading ? "Preparing…" : "Download PDF"}
               </Button>
@@ -169,19 +180,30 @@ export default function BfsiOnePagerPage() {
 
   const view = editor.liveEffective
     ? bfsiView(sub, editor.liveEffective, editor.pages)
-    : { submission: sub, overall };
+    : { submission: sub, overall, grades: undefined };
 
   return (
     <div className="flex flex-col gap-5">
       {header}
 
       {actionError ? <Alert variant="error">{actionError}</Alert> : null}
+      <ReportEditAnnouncer message={editor.announcement} />
+      {editor.loadError ? (
+        <Alert variant="error">
+          Couldn&apos;t load the saved report ({editor.loadError}). Download and Send stay off
+          until it loads, so they never go out without your edits.{" "}
+          <button type="button" className="font-medium underline" onClick={editor.refresh}>
+            Retry
+          </button>
+        </Alert>
+      ) : null}
 
       {editing ? (
         <ReportEditBar
           dirty={editor.dirty}
           saving={editor.saving}
           previewing={editor.previewing}
+          logoBusy={editor.logoBusy}
           error={editor.error}
           edited={!!editor.report?.edited}
           onSave={editor.save}
@@ -204,6 +226,7 @@ export default function BfsiOnePagerPage() {
             overall={view.overall}
             previous={previous}
             industryLabel={industry_label}
+            grades={view.grades}
           />
         </ReportEditProvider>
       </ReportPreview>

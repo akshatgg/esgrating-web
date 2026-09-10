@@ -18,6 +18,8 @@ type SendReportButtonProps = {
   email: string;
   /** Field name(s) the API expects the PDF blob(s) under (default `"pdf"`). */
   fieldName?: string;
+  /** Extra reason the button is unavailable (e.g. the saved report hasn't loaded). */
+  unavailableReason?: string | null;
 };
 
 type Status = "idle" | "sending" | "success" | "error";
@@ -30,12 +32,14 @@ export default function SendReportButton({
   endpoint,
   email,
   fieldName = "pdf",
+  unavailableReason,
 }: SendReportButtonProps) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(null);
 
-  const disabled = !email;
+  const disabled = !email || !!unavailableReason;
+  const disabledTitle = !email ? "No contact email on this submission" : (unavailableReason ?? undefined);
 
   function close() {
     if (status === "sending") return;
@@ -66,7 +70,7 @@ export default function SendReportButton({
         variant="adminSecondary"
         disabled={disabled}
         onClick={() => setOpen(true)}
-        title={disabled ? "No contact email on this submission" : undefined}
+        title={disabled ? disabledTitle : undefined}
       >
         <Send className="h-4 w-4" aria-hidden="true" />
         Send report

@@ -12,6 +12,8 @@ type ReportEditBarProps = {
   dirty: boolean;
   saving: boolean;
   previewing: boolean;
+  /** A logo upload/removal is in flight: Save waits for it. */
+  logoBusy?: boolean;
   error: string | null;
   /** Whether a saved edit exists to reset. */
   edited: boolean;
@@ -21,11 +23,14 @@ type ReportEditBarProps = {
 };
 
 /** Sticky bar shown while a report is in edit mode: Save, Cancel and
- * "Reset to AI version" (confirmed). Sits just under the console's glass header. */
+ * "Reset to AI version" (confirmed). Sits just under the console's glass header.
+ * The status line is visual only; saved/reset are announced by
+ * `ReportEditAnnouncer` and errors by the Alert (role="alert"). */
 export default function ReportEditBar({
   dirty,
   saving,
   previewing,
+  logoBusy,
   error,
   edited,
   onSave,
@@ -35,11 +40,13 @@ export default function ReportEditBar({
   const [confirmReset, setConfirmReset] = useState(false);
   const status = saving
     ? "Saving…"
-    : previewing
-      ? "Recalculating…"
-      : dirty
-        ? "Unsaved changes"
-        : "No changes yet";
+    : logoBusy
+      ? "Updating logo…"
+      : previewing
+        ? "Recalculating…"
+        : dirty
+          ? "Unsaved changes"
+          : "No changes yet";
 
   return (
     <div className="sticky top-[84px] z-20 flex flex-col gap-2">
@@ -57,8 +64,8 @@ export default function ReportEditBar({
           </span>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-ink">Editing report</p>
-            <p className="flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
-              {previewing || saving ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted">
+              {previewing || saving || logoBusy ? (
                 <Loader2 className="h-3 w-3 motion-safe:animate-spin" aria-hidden="true" />
               ) : null}
               {status}
@@ -76,7 +83,13 @@ export default function ReportEditBar({
             <X className="h-4 w-4" aria-hidden="true" />
             Cancel
           </Button>
-          <Button variant="adminPrimary" size="sm" onClick={onSave} disabled={saving || !dirty}>
+          <Button
+            variant="adminPrimary"
+            size="sm"
+            onClick={onSave}
+            disabled={saving || !dirty || logoBusy}
+            title={logoBusy ? "Wait for the logo to finish updating" : undefined}
+          >
             <Save className="h-4 w-4" aria-hidden="true" />
             {saving ? "Saving…" : "Save"}
           </Button>
@@ -96,5 +109,15 @@ export default function ReportEditBar({
         restores the AI&apos;s original result. This can&apos;t be undone.
       </ConfirmDialog>
     </div>
+  );
+}
+
+/** Screen-reader announcement of the editor's outcomes (saved / reset). Keep it
+ * mounted outside the edit bar: the bar unmounts as soon as a save finishes. */
+export function ReportEditAnnouncer({ message }: { message: string }) {
+  return (
+    <p className="sr-only" role="status" aria-live="polite">
+      {message}
+    </p>
   );
 }

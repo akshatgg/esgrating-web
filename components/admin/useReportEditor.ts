@@ -4,7 +4,7 @@
 // loads GET …/report, keeps a draft of the edits object, previews every change
 // through the server (debounced ~300ms; the browser never computes scores),
 // saves with PUT, resets with DELETE, uploads the logo, and guards unsaved
-// changes against closing the tab or following an in-app link.
+// changes against closing the tab, following an in-app link or browser Back.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
@@ -14,6 +14,7 @@ import {
   getReport,
   logoSrcOf,
   previewReport,
+  pruneField,
   resetReportEdits,
   saveReportEdits,
   uploadReportLogo,
@@ -51,6 +52,8 @@ export function useReportEditor<E extends Effective>(
   const [report, setReport] = useState<ReportState<E> | null>(null);
   /** The report API isn't there (older backend) or refused: editing hidden. */
   const [unavailable, setUnavailable] = useState(false);
+  /** GET …/report failed: Download/Send wait for it (they must render the saved edits). */
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ReportEdits>({});
   const [dirty, setDirty] = useState(false);
@@ -62,10 +65,15 @@ export function useReportEditor<E extends Effective>(
   const [logoError, setLogoError] = useState<string | null>(null);
   const [logoBust, setLogoBust] = useState(0);
   const [version, setVersion] = useState(0);
+  /** Screen-reader announcement: saved / reset only (errors use role="alert"). */
+  const [announcement, setAnnouncement] = useState("");
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflight = useRef<AbortController | null>(null);
   const seq = useRef(0);
+  const dirtyRef = useRef(false);
+  /** Whether our Back-guard history entry is on top of the stack. */
+  const sentinel = useRef(false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -74,11 +82,13 @@ export function useReportEditor<E extends Effective>(
       .then((res) => {
         setReport(res);
         setUnavailable(false);
+        setLoadError(null);
       })
       .catch((err: unknown) => {
         if (ctrl.signal.aborted) return;
         setReport(null);
         setUnavailable(err instanceof ApiError && err.status !== 0);
+        setLoadError(message(err));
       });
     return () => ctrl.abort();
   }, [kind, id, enabled, version]);
@@ -95,6 +105,7 @@ export function useReportEditor<E extends Effective>(
   // Unsaved-changes guard: closing/reloading the tab, and in-app links (capture
   // phase, ahead of Next's <Link> handler at the React root).
   useEffect(() => {
+    dirtyRef.current = dirty;
     if (!dirty) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
@@ -113,11 +124,34 @@ export function useReportEditor<E extends Effective>(
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     document.addEventListener("click", onClick, true);
+    // Browser Back: a same-URL history entry sits on top while there are
+    // unsaved changes, so Back first lands here, on the same page, and asks.
+    if (!sentinel.current) {
+      window.history.pushState(window.history.state, "", window.location.href);
+      sentinel.current = true;
+    }
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       document.removeEventListener("click", onClick, true);
     };
   }, [dirty]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      if (!sentinel.current) return;
+      sentinel.current = false; // Back consumed the guard entry.
+      if (!dirtyRef.current) return;
+      if (window.confirm(LEAVE_MESSAGE)) {
+        dirtyRef.current = false;
+        window.history.back();
+      } else {
+        window.history.pushState(window.history.state, "", window.location.href);
+        sentinel.current = true;
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -167,6 +201,7 @@ export function useReportEditor<E extends Effective>(
     setPreview(null);
     setError(null);
     setLogoError(null);
+    setAnnouncement("");
     setDirty(false);
     setEditing(true);
   }
@@ -191,6 +226,7 @@ export function useReportEditor<E extends Effective>(
       setDirty(false);
       setPreview(null);
       setLogoBust(Date.now());
+      setAnnouncement("Report saved.");
       await onSaved?.();
     } catch (err) {
       setError(message(err));
@@ -207,6 +243,7 @@ export function useReportEditor<E extends Effective>(
     setDirty(false);
     setPreview(null);
     setError(null);
+    setAnnouncement("Report reset to the AI version.");
     // Swap in the reset report before touching the cache-buster, so the
     // just-deleted custom logo isn't requested again.
     const res = await getReport<E>(kind, id).catch(() => null);
@@ -261,6 +298,7 @@ export function useReportEditor<E extends Effective>(
         pillarOverrides: savedEdits?.pillar_overrides ?? {},
         pillarManual: report.effective.pillar_manual ?? {},
         pages: report.pages ?? {},
+        pagesEditable: report.pages_editable ?? {},
         logoSrc: logoSrcOf(report.effective, logoBust),
       }
     : null;
@@ -275,19 +313,31 @@ export function useReportEditor<E extends Effective>(
           pillarOverrides: draft.pillar_overrides ?? {},
           pillarManual: liveEffective?.pillar_manual ?? {},
           pages: preview?.pages ?? report.pages ?? {},
+          pagesEditable: preview?.pages_editable ?? report.pages_editable ?? {},
           logoSrc: logoSrcOf(liveEffective, logoBust),
           logoBusy,
           logoError,
+          // Blank means "no override": the key is dropped and the default shows
+          // (the inputs keep their own empty draft while focused).
           setHeading: (k, v) =>
             update((d) => {
               d.headings = { ...d.headings };
-              if (v === "") delete d.headings[k];
+              if (v.trim() === "") delete d.headings[k];
               else d.headings[k] = v;
             }, false),
-          setField: (k, v) =>
-            update((d) => {
-              d.fields = { ...d.fields, [k]: v };
-            }, k === "recommendation" ? false : true),
+          setField: (k, v) => {
+            const value = pruneField(v);
+            update(
+              (d) => {
+                d.fields = { ...d.fields };
+                if (value === undefined) delete d.fields[k];
+                else d.fields[k] = value;
+              },
+              // A recommendation override renders from the draft; clearing it
+              // needs the server's grade-derived recommendation back.
+              k === "recommendation" ? value === undefined : true,
+            );
+          },
           setPillar: (cat: Cat, v) =>
             update((d) => {
               d.pillar_overrides = { ...d.pillar_overrides, [cat]: v };
@@ -303,7 +353,10 @@ export function useReportEditor<E extends Effective>(
             update((d) => {
               const reasons = { ...((d.fields?.reasons as Record<string, Record<string, string>>) ?? {}) };
               reasons[cat] = { ...(reasons[cat] ?? {}), [String(page)]: text };
-              d.fields = { ...d.fields, reasons };
+              const value = pruneField(reasons);
+              d.fields = { ...d.fields };
+              if (value === undefined) delete d.fields.reasons;
+              else d.fields.reasons = value;
             }),
           uploadLogo: (file) => void uploadLogo(file),
           useDefaultLogo: () => {
@@ -316,11 +369,15 @@ export function useReportEditor<E extends Effective>(
   return {
     report,
     unavailable,
+    /** GET …/report failed (null while loading or once loaded). */
+    loadError,
     editing,
     dirty,
     saving,
     previewing,
+    logoBusy,
     error,
+    announcement,
     /** The effective report to render, or null to render the detail as today. */
     liveEffective,
     pages: editing ? (preview?.pages ?? report?.pages ?? {}) : (report?.pages ?? {}),

@@ -67,18 +67,49 @@ export type EsgEffective = Common & { final: EsgFinal };
 
 export type Effective = BfsiEffective | EsgEffective;
 
+/** Per category: whether its page scores can be edited. False when the page
+ * list doesn't average to the stored pillar score (the server then rejects
+ * page edits for it; the pillar score can still be set directly). */
+export type PagesEditable = Partial<Record<Cat, boolean>>;
+
 /** GET …/report and PUT …/report/edits. */
 export type ReportState<E extends Effective = Effective> = {
   effective: E;
   original?: E;
   edits: ReportEdits | null;
   pages: Pages;
+  pages_editable?: PagesEditable;
   edited: boolean;
   heading_keys?: string[];
   field_keys?: string[];
 };
 
-export type PreviewResult<E extends Effective = Effective> = { effective: E; pages: Pages };
+export type PreviewResult<E extends Effective = Effective> = {
+  effective: E;
+  pages: Pages;
+  pages_editable?: PagesEditable;
+};
+
+/** The server's cap on list fields (`LIST_MAX` in app/reports/editing.py). */
+export const LIST_MAX = 20;
+
+/** A field value with "no override" parts removed: blank text (after trim),
+ * empty lists, and objects left empty. Returns undefined when nothing is
+ * left, meaning the field key should be dropped (same rule as the server).
+ * List items stay as typed, so a just-added empty item keeps its input. */
+export function pruneField(value: unknown): unknown {
+  if (typeof value === "string") return value.trim() === "" ? undefined : value;
+  if (Array.isArray(value)) return value.length === 0 ? undefined : value;
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      const p = pruneField(v);
+      if (p !== undefined) out[k] = p;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  return value ?? undefined;
+}
 
 const base = (kind: ReportKind, id: string) => `/api/admin/${kind}/submissions/${id}/report`;
 
@@ -151,7 +182,12 @@ export function bfsiView(
   sub: BfsiSubmission,
   eff: BfsiEffective,
   pages: Pages | undefined,
-): { submission: BfsiSubmission; overall: BfsiOverall; recommendation: string } {
+): {
+  submission: BfsiSubmission;
+  overall: BfsiOverall;
+  recommendation: string;
+  grades: BfsiEffective["grades"];
+} {
   const ai: BfsiAi = { ...(sub.ai_analysis as BfsiAi), ...eff.ai_analysis };
   if (pages) {
     const reasons: BfsiAi["reasons"] = { ...ai.reasons };
@@ -173,7 +209,7 @@ export function bfsiView(
     g_score: eff.g_score,
     borrower_name: eff.company ?? sub.borrower_name,
   };
-  return { submission, overall: eff.overall, recommendation: eff.recommendation };
+  return { submission, overall: eff.overall, recommendation: eff.recommendation, grades: eff.grades };
 }
 
 /** The logo `<img>` src for an effective report, or null for the default.

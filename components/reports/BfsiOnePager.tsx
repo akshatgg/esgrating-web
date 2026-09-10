@@ -3,7 +3,7 @@ import type { BfsiCategory, BfsiDetail, BfsiOverall, BfsiSubmission } from "@/li
 import { bfsiGrade, fyFull, fyShortOf } from "@/lib/grades";
 import { asArray, capitalizeFirst, formatUtc, numberFormat, parseApiDate } from "@/lib/format";
 import Doughnut from "@/components/reports/Doughnut";
-import { BFSI_REPORT_LOGO } from "@/components/reports/BfsiDetailedReport";
+import { BFSI_REPORT_LOGO, type PillarGrades } from "@/components/reports/BfsiDetailedReport";
 import {
   EditableHeading,
   EditableLogo,
@@ -47,6 +47,8 @@ type BfsiOnePagerProps = {
   overall: BfsiOverall;
   previous: BfsiDetail["previous"];
   industryLabel: string;
+  /** Pillar grades from the server; without them the display ladder is used. */
+  grades?: PillarGrades;
 };
 
 /** Port of admin/one_pager.php (itself a port of the ESG calculator's
@@ -55,7 +57,7 @@ type BfsiOnePagerProps = {
  * `lib/pdf.ts`. Renders nothing without an `ai_analysis`. Editable in place
  * inside a `ReportEditProvider` in edit mode. */
 const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function BfsiOnePager(
-  { submission: sub, overall, previous, industryLabel },
+  { submission: sub, overall, previous, industryLabel, grades },
   ref,
 ) {
   const ai = sub.ai_analysis;
@@ -65,15 +67,18 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
   const sector = useField("sector", industryLabel);
   const fy = useField("fy", fyFull(created));
   const reportDate = useField("report_date", formatUtc(sub.created_at, "Y-m-d"));
-  const keywords = useField<Partial<Record<BfsiCategory, string[]>>>("keywords", ai?.keywords ?? {});
+  const keywords: Partial<Record<BfsiCategory, string[]>> = {
+    ...(ai?.keywords ?? {}),
+    ...useField<Partial<Record<BfsiCategory, string[]>>>("keywords", {}),
+  };
   if (!ai) return null;
 
   const e = sub.e_score ?? 0;
   const s = sub.s_score ?? 0;
   const g = sub.g_score ?? 0;
-  const eGrade = bfsiGrade(e);
-  const sGrade = bfsiGrade(s);
-  const gGrade = bfsiGrade(g);
+  const eGrade = grades?.E ?? bfsiGrade(e);
+  const sGrade = grades?.S ?? bfsiGrade(s);
+  const gGrade = grades?.G ?? bfsiGrade(g);
 
   const fyThis = fyShortOf(created);
 
@@ -152,7 +157,7 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
           <div className={styles["left-section"]}>
             <div className={styles["esg-card"]}>
               <div className={styles["esg-header"]}>
-                <EditableHeading k="rating_summary" as="h1" className={styles["esg-heading"]}>
+                <EditableHeading k="onepager_rating_summary" as="h1" className={styles["esg-heading"]}>
                   Rating Summary
                 </EditableHeading>
               </div>

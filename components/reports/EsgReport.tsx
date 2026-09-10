@@ -77,7 +77,8 @@ const EsgReport = forwardRef<HTMLDivElement, EsgReportProps>(function EsgReport(
   const edit = useReportEdit();
   const company = useField("company", companyName);
   const sector = useField("sector", final.sector);
-  const fyShown = useField("fy", fy);
+  const fyOverride = useField<string | null>("fy", null);
+  const fyShown = fyOverride ?? fy;
   const reportDate = useField("report_date", final.report_date);
   const kpis = {
     environmental_top_keywords: useField("environmental_top_keywords", final.environmental_top_keywords),
@@ -144,7 +145,11 @@ const EsgReport = forwardRef<HTMLDivElement, EsgReportProps>(function EsgReport(
       }}
       scoreSummary={[
         { label: previousYearLabel, value: previousScore },
-        { label: reportYearLabel(yearScore, fy), value: score },
+        {
+          // An edited FY labels this year's row; else the run's own year, as before.
+          label: fyOverride !== null ? fyShort(fyOverride) : reportYearLabel(yearScore, fy),
+          value: score,
+        },
       ]}
       status={
         firstAssessment ? (
