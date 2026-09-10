@@ -22,13 +22,21 @@ const UNREACHABLE_MESSAGE =
 async function readDetail(res: Response): Promise<string | undefined> {
   try {
     const body: unknown = await res.json();
-    if (
-      body &&
-      typeof body === "object" &&
-      "detail" in body &&
-      typeof (body as { detail?: unknown }).detail === "string"
-    ) {
-      return (body as { detail: string }).detail;
+    const detail =
+      body && typeof body === "object" && "detail" in body
+        ? (body as { detail?: unknown }).detail
+        : undefined;
+    if (typeof detail === "string") return detail;
+    // FastAPI's validation error: `detail` is a list of `{loc, msg, type}`.
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map((entry: unknown) =>
+          entry && typeof entry === "object" && typeof (entry as { msg?: unknown }).msg === "string"
+            ? (entry as { msg: string }).msg
+            : null,
+        )
+        .filter((msg): msg is string => !!msg);
+      if (messages.length > 0) return messages.join("; ");
     }
   } catch {
     // Non-JSON error body — fall through to the generic message.

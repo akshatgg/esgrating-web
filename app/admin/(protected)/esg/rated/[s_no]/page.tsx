@@ -50,6 +50,9 @@ function fetchRating(sNo: string): Promise<EsgListItem> {
 export default function RatedCompanyPage() {
   const params = useParams<{ s_no: string }>();
   const sNo = params.s_no;
+  // A non-numeric S.No can't exist; don't ask the API (it would answer with a
+  // validation error rather than "Not found").
+  const validSNo = /^\d+$/.test(sNo);
   const router = useRouter();
 
   const [item, setItem] = useState<EsgListItem | null>(null);
@@ -63,6 +66,7 @@ export default function RatedCompanyPage() {
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!validSNo) return;
     let cancelled = false;
     fetchRating(sNo)
       .then((res) => {
@@ -77,7 +81,7 @@ export default function RatedCompanyPage() {
     return () => {
       cancelled = true;
     };
-  }, [sNo, refreshToken]);
+  }, [sNo, validSNo, refreshToken]);
 
   async function handleDownload() {
     if (!reportRef.current || !item) return;
@@ -92,15 +96,15 @@ export default function RatedCompanyPage() {
     }
   }
 
-  if (!item && !loadError) {
+  if (validSNo && !item && !loadError) {
     return <DetailSkeleton />;
   }
 
-  if (loadError || !item) {
+  if (!validSNo || loadError || !item) {
     return (
       <div className="flex flex-col gap-5">
         <PageHeader crumbs={[...LIST_CRUMBS, { label: "Rated company" }]} title="Rated company" />
-        <Alert variant="error">{loadError ?? "Not found"}</Alert>
+        <Alert variant="error">{validSNo ? (loadError ?? "Not found") : "Not found"}</Alert>
         <Button variant="adminSecondary" href={RATED_COMPANIES_HREF} className="self-start">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Rated companies

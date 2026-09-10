@@ -20,7 +20,7 @@ import {
   Upload,
 } from "lucide-react";
 import clsx from "clsx";
-import type { EsgListItem, Paged, RatingRow } from "@/lib/types";
+import type { EsgListItem, Paged } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { formatDmyFull } from "@/lib/format";
 import DataTable, { type Column } from "@/components/admin/DataTable";
@@ -42,7 +42,7 @@ import { useEsgOnePagerPdf } from "@/components/admin/useEsgOnePagerPdf";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Alert from "@/components/ui/Alert";
-import RatingModal, { ratingRowFromItem } from "./RatingModal";
+import RatingModal, { ratingRowFromItem, type RatingModalRow } from "./RatingModal";
 import RatingDeleteModal from "./RatingDeleteModal";
 
 // ESG Submissions: the ESG calculator's submissions and the ESG Rating List's
@@ -139,7 +139,7 @@ function EsgList() {
   const [refreshToken, setRefreshToken] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   // `row: null` = Add rated company; the modal mounts fresh on every open.
-  const [editor, setEditor] = useState<{ row: RatingRow | null } | null>(null);
+  const [editor, setEditor] = useState<{ row: RatingModalRow | null } | null>(null);
   const [ratingDelete, setRatingDelete] = useState<EsgListItem | null>(null);
   const [calcDelete, setCalcDelete] = useState<EsgListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -216,7 +216,7 @@ function EsgList() {
     stats.refresh();
   }
 
-  function openEditor(row: RatingRow | null) {
+  function openEditor(row: RatingModalRow | null) {
     setNotice(null);
     setEditor({ row });
   }

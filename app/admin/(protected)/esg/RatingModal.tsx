@@ -29,7 +29,11 @@ type RatingForm = {
   category: string;
 };
 
-function initialForm(row: RatingRow | null): RatingForm {
+/** A rating row as the modal takes it: a list item's rating can be null
+ * (shown blank), where a stored `RatingRow` always has one. */
+export type RatingModalRow = Omit<RatingRow, "esg_rating"> & { esg_rating: number | null };
+
+function initialForm(row: RatingModalRow | null): RatingForm {
   return {
     company_name: row?.company_name ?? "",
     sector: row?.sector ?? "",
@@ -41,12 +45,12 @@ function initialForm(row: RatingRow | null): RatingForm {
 }
 
 /** A merged-list / `GET /api/admin/ratings/{s_no}` item as the modal's row. */
-export function ratingRowFromItem(item: EsgListItem): RatingRow {
+export function ratingRowFromItem(item: EsgListItem): RatingModalRow {
   return {
     s_no: Number(item.id),
     company_name: item.company ?? "",
     sector: item.sector ?? "",
-    esg_rating: item.rating ?? 0,
+    esg_rating: item.rating,
     date_of_rating: item.date,
     grade: item.grade ?? "",
     category: item.category ?? "",
@@ -56,7 +60,7 @@ export function ratingRowFromItem(item: EsgListItem): RatingRow {
 type RatingModalProps = {
   /** The row being edited, or null to add a new one. Mount a fresh modal per
    * open so a cancelled edit never leaks into the next one. */
-  row: RatingRow | null;
+  row: RatingModalRow | null;
   onClose: () => void;
   onSaved: () => void;
 };
