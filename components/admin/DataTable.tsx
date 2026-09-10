@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import clsx from "clsx";
+import { CARD } from "./styles";
 
 export type Column<T> = {
   key: keyof T & string;
@@ -17,6 +18,10 @@ type DataTableProps<T> = {
   rows: T[];
   empty: ReactNode;
   rowKey?: (row: T, index: number) => string | number;
+  /** "classic" is the original look (ESG/BFSI lists until their Pass B
+   * restyle); "console" is the superadmin console table: white rounded-xl
+   * card, sticky 11px uppercase header, 52px rows. */
+  appearance?: "classic" | "console";
 };
 
 function cell<T>(row: T, column: Column<T>): ReactNode {
@@ -27,12 +32,91 @@ function cell<T>(row: T, column: Column<T>): ReactNode {
 
 /** A table from `md` up, stacked label/value cards below — shared by the
  * admin submissions, ratings and messages lists. */
-export default function DataTable<T>({ columns, rows, empty, rowKey }: DataTableProps<T>) {
+export default function DataTable<T>({
+  columns,
+  rows,
+  empty,
+  rowKey,
+  appearance = "classic",
+}: DataTableProps<T>) {
+  const console = appearance === "console";
+
   if (rows.length === 0) {
-    return (
+    return console ? (
+      <div className={CARD}>{empty}</div>
+    ) : (
       <div className="rounded-2xl border border-line bg-white px-6 py-12 text-center text-sm text-muted">
         {empty}
       </div>
+    );
+  }
+
+  if (console) {
+    return (
+      <>
+        <div
+          className={clsx(
+            CARD,
+            "hidden overflow-x-auto rounded-xl md:block",
+          )}
+        >
+          <table className="w-full text-left text-sm">
+            <thead className="sticky top-0 z-[1]">
+              <tr className="bg-slate-50/90">
+                {columns.map((column) => (
+                  <th
+                    key={column.id ?? column.key}
+                    scope="col"
+                    className={clsx(
+                      "h-10 border-b border-line px-4 text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-muted uppercase",
+                      column.className,
+                    )}
+                  >
+                    {column.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => (
+                <tr
+                  key={rowKey ? rowKey(row, i) : i}
+                  className="h-[52px] border-b border-line last:border-0 hover:bg-slate-50/70 motion-safe:transition-colors"
+                >
+                  {columns.map((column) => (
+                    <td
+                      key={column.id ?? column.key}
+                      className={clsx("px-4 py-2 text-ink tabular-nums", column.className)}
+                    >
+                      {cell(row, column)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <ul className="flex flex-col gap-3 md:hidden">
+          {rows.map((row, i) => (
+            <li key={rowKey ? rowKey(row, i) : i} className={clsx(CARD, "rounded-xl px-4 py-2")}>
+              <dl>
+                {columns.map((column) => (
+                  <div
+                    key={column.id ?? column.key}
+                    className="flex items-start justify-between gap-4 border-b border-line py-2 text-sm last:border-0"
+                  >
+                    <dt className="shrink-0 text-xs font-medium tracking-wide text-muted uppercase">
+                      {column.header}
+                    </dt>
+                    <dd className="min-w-0 text-right break-words text-ink">{cell(row, column)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </li>
+          ))}
+        </ul>
+      </>
     );
   }
 

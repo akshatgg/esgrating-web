@@ -14,7 +14,7 @@ export const GRADE_COLORS: Record<Grade, string> = {
   D: "#c0392b",
 };
 
-const GRADE_LABELS: Record<Grade, string> = {
+export const GRADE_LABELS: Record<Grade, string> = {
   "A+": "Outstanding",
   A: "Excellent",
   "B+": "Very Good",
