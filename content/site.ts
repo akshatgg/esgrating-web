@@ -11,6 +11,8 @@ export const NAV: NavItem[] = [
   { label: "Contact Us", href: "/contact" },
 ];
 
+export const ADMIN_LOGIN_HREF = "/admin/login";
+
 export const QUICK_LINKS: NavItem[] = [
   { label: "Contact Us", href: "/contact" },
   { label: "Blogs", href: "/blogs" },

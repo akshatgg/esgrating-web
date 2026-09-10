@@ -4,9 +4,9 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { LogIn, Menu } from "lucide-react";
 import clsx from "clsx";
-import { NAV } from "@/content/site";
+import { ADMIN_LOGIN_HREF, NAV } from "@/content/site";
 import { isActivePath } from "@/lib/nav";
 import MobileNav from "./MobileNav";
 
@@ -33,24 +33,34 @@ export default function Header() {
             />
           </Link>
 
-          <nav aria-label="Primary" className="hidden lg:block">
-            <ul className="flex items-center gap-8 text-[17px] font-medium">
-              {NAV.map((item) => {
-                const isActive = isActivePath(pathname, item.href);
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      aria-current={isActive ? "page" : undefined}
-                      className="nav-link"
-                    >
-                      {item.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+          <div className="hidden items-center gap-6 lg:flex">
+            <nav aria-label="Primary">
+              <ul className="flex items-center gap-8 text-[17px] font-medium">
+                {NAV.map((item) => {
+                  const isActive = isActivePath(pathname, item.href);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        aria-current={isActive ? "page" : undefined}
+                        className="nav-link"
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+
+            <Link
+              href={ADMIN_LOGIN_HREF}
+              className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm font-medium text-muted motion-safe:transition-colors hover:border-calc-blue hover:text-calc-blue"
+            >
+              <LogIn className="h-4 w-4" aria-hidden="true" />
+              Login
+            </Link>
+          </div>
 
           <button
             ref={triggerRef}

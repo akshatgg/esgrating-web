@@ -3,9 +3,9 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
+import { LogIn, X } from "lucide-react";
 import clsx from "clsx";
-import { NAV, CONTACT } from "@/content/site";
+import { ADMIN_LOGIN_HREF, NAV, CONTACT } from "@/content/site";
 import { isActivePath } from "@/lib/nav";
 
 const FOCUSABLE_SELECTOR =
@@ -147,13 +147,23 @@ export default function MobileNav({ open, onClose, triggerRef }: MobileNavProps)
           </ul>
         </nav>
 
-        <div className="mt-auto flex flex-col gap-2 border-t border-line pt-6 text-sm text-muted">
-          <a href={CONTACT.phoneHref} className="hover:text-calc-blue">
-            {CONTACT.phone}
-          </a>
-          <a href={`mailto:${CONTACT.email}`} className="hover:text-calc-blue">
-            {CONTACT.email}
-          </a>
+        <div className="mt-auto flex flex-col gap-4 border-t border-line pt-6">
+          <div className="flex flex-col gap-2 text-sm text-muted">
+            <a href={CONTACT.phoneHref} className="hover:text-calc-blue">
+              {CONTACT.phone}
+            </a>
+            <a href={`mailto:${CONTACT.email}`} className="hover:text-calc-blue">
+              {CONTACT.email}
+            </a>
+          </div>
+
+          <Link
+            href={ADMIN_LOGIN_HREF}
+            className="flex w-fit items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm font-medium text-muted hover:border-calc-blue hover:text-calc-blue"
+          >
+            <LogIn className="h-4 w-4" aria-hidden="true" />
+            Login
+          </Link>
         </div>
       </div>
     </div>
