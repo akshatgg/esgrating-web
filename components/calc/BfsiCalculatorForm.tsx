@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import clsx from "clsx";
 import CalculatorCard, { CALC_GRID_CLASSES } from "@/components/calc/CalculatorCard";
@@ -51,7 +52,10 @@ const INITIAL_FORM: FormState = {
 // instead, which shows an inline Alert without touching `form`/`file` state
 // — mirroring EsgCalculatorForm's inline-error pattern — so a typo doesn't
 // cost the user their attached file.
-type Status = "idle" | "submitting" | "success" | "error" | "validation-error";
+// "saved-no-id" (admin): the create succeeded but the response had no id, so
+// there's no detail page to open — Submit stays disabled (a second click would
+// create a duplicate) and the error links to the list instead.
+type Status = "idle" | "submitting" | "success" | "error" | "validation-error" | "saved-no-id";
 
 // Validation order + messages ported verbatim from `bfsi_store_submission`
 // (bfsi.md §1c).
@@ -188,6 +192,7 @@ export default function BfsiCalculatorForm({
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (status === "submitting" || status === "saved-no-id") return;
 
     const validationError = validate(form, file, options);
     if (validationError) {
@@ -217,7 +222,7 @@ export default function BfsiCalculatorForm({
         // Without an id there is no detail page to go to — say so rather than
         // navigating to a broken `/admin/bfsi/` URL.
         if (!res?.id) {
-          setStatus("validation-error");
+          setStatus("saved-no-id");
           setErrorMessage(
             "The assessment was saved, but the server didn't return its id. Open it from BFSI Submissions.",
           );
@@ -419,9 +424,19 @@ export default function BfsiCalculatorForm({
     />
   );
   const inlineError =
-    status === "validation-error" && errorMessage ? (
+    status === "saved-no-id" && errorMessage ? (
+      <Alert variant="error">
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {errorMessage}
+          <Link href="/admin/bfsi" className="font-semibold underline underline-offset-2">
+            Go to BFSI submissions
+          </Link>
+        </span>
+      </Alert>
+    ) : status === "validation-error" && errorMessage ? (
       <Alert variant="error">{errorMessage}</Alert>
     ) : null;
+  const submitDisabled = status === "submitting" || status === "saved-no-id";
   const submitLabel =
     status === "submitting" ? (
       <>
@@ -479,7 +494,7 @@ export default function BfsiCalculatorForm({
               Cancel
             </Button>
           ) : null}
-          <Button type="submit" variant="adminPrimary" disabled={status === "submitting"}>
+          <Button type="submit" variant="adminPrimary" disabled={submitDisabled}>
             {submitLabel}
           </Button>
         </FormFooter>
@@ -514,7 +529,7 @@ export default function BfsiCalculatorForm({
         {inlineError ? <div className="col-span-full">{inlineError}</div> : null}
 
         <div className="col-span-full">
-          <Button type="submit" variant="calcNavy" disabled={status === "submitting"}>
+          <Button type="submit" variant="calcNavy" disabled={submitDisabled}>
             {submitLabel}
           </Button>
         </div>
