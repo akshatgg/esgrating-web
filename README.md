@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# esgratings-web
 
-## Getting Started
+Next.js 16 (App Router) rebuild of esgratings.co.in — public site, both public
+calculators (ESG and BFSI), and the superadmin dashboard.
 
-First, run the development server:
+## Stack
+
+Next.js 16.3, React 19, TypeScript (strict), Tailwind CSS v4, npm,
+lucide-react, chart.js 4 + react-chartjs-2, html2pdf.js 0.10.1, next/font
+(Inter from Google, Clash Display local).
+
+## Architecture
+
+- **Routes:** `(site)` route group for the public pages, `admin` for the
+  dashboard.
+- **Content:** static, typed data in `content/`.
+- **API calls:** everything goes through `/api/*`, which `next.config.ts`
+  rewrites to the FastAPI backend (`esgratings-api`), so the session cookie
+  stays same-origin. There is no `middleware.ts` — it would cap upload
+  bodies.
+- **Reports:** client components that generate PDFs in the browser with
+  html2pdf.js.
+
+## Getting started
 
 ```bash
+cp .env.example .env.local   # set API_URL if the API isn't on :8000
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Or use the dev scripts, which install dependencies if needed, start Next.js
+in the background, and wait for it to become healthy:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+./dev_start.sh   # → http://localhost:3000
+./dev_stop.sh
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Logs are written to `.dev/web.log`; the pid is in `.dev/web.pid`.
 
-## Learn More
+## Environment
 
-To learn more about Next.js, take a look at the following resources:
+| Variable | Purpose |
+| --- | --- |
+| `API_URL` | Server-side base URL of the FastAPI backend, used by `next.config.ts` rewrites and by server components. |
+| `NEXT_PUBLIC_SITE_URL` | Public site URL, used for metadata / sitemap / canonical links. |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+No other secrets live in this repo.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Design tokens
 
-## Deploy on Vercel
+Brand and calculator colours, fonts and motion utilities are defined in
+`app/globals.css` as a Tailwind v4 `@theme` block (`--color-navy`,
+`--color-brand`, `--color-calc-navy`, `--color-calc-blue`, `--color-ink`,
+`--color-muted`, `--color-line`, `--color-field`, `--color-bg-soft`,
+`--font-sans`, `--font-display`, …), plus the `fadeUp` / `sheen` / `drift`
+keyframes and the `.reveal` / `.cta-sweep` / `.card-lift` utility classes.
+All motion respects `prefers-reduced-motion`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Docker
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+docker build -t esgratings-web .
+docker run -p 3000:3000 -e API_URL=http://host.docker.internal:8000 esgratings-web
+```
+
+The image is a multi-stage `node:22-alpine` build using Next's
+`output: "standalone"`.
+
+## Scripts
+
+- `npm run dev` — start the dev server.
+- `npm run build` — production build.
+- `npm run start` — run the production build.
+- `npm run lint` — ESLint.
