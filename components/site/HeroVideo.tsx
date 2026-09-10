@@ -7,31 +7,39 @@ type HeroVideoProps = {
   poster: string;
 };
 
-/** Autoplaying hero video. `preload` is set to "none" on small viewports
- * (matching a `md` breakpoint) since Next has no prop for conditional
- * preload, and to "metadata" otherwise. */
+const WIDE_QUERY = "(min-width: 768px)";
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+/** Autoplaying hero video. The server and the first client render are the
+ * poster alone (no source, no autoplay), so small screens and reduced-motion
+ * visitors never download the MP4. The source is attached client-side only
+ * once the viewport is `md` or wider and motion is allowed. */
 export default function HeroVideo({ src, poster }: HeroVideoProps) {
-  const [preload, setPreload] = useState<"none" | "metadata">("none");
+  const [playable, setPlayable] = useState(false);
 
   useEffect(() => {
-    const mql = window.matchMedia("(min-width: 768px)");
-    const update = () => setPreload(mql.matches ? "metadata" : "none");
+    const wide = window.matchMedia(WIDE_QUERY);
+    const reduced = window.matchMedia(REDUCED_MOTION_QUERY);
+    const update = () => setPlayable(wide.matches && !reduced.matches);
     update();
-    mql.addEventListener("change", update);
-    return () => mql.removeEventListener("change", update);
+    wide.addEventListener("change", update);
+    reduced.addEventListener("change", update);
+    return () => {
+      wide.removeEventListener("change", update);
+      reduced.removeEventListener("change", update);
+    };
   }, []);
 
   return (
     <video
       className="h-full w-full rounded-2xl object-cover shadow-[0_20px_50px_rgba(10,16,47,0.35)]"
       poster={poster}
-      preload={preload}
+      src={playable ? src : undefined}
+      preload={playable ? "metadata" : "none"}
+      autoPlay={playable}
       muted
-      autoPlay
       loop
       playsInline
-    >
-      <source src={src} type="video/mp4" />
-    </video>
+    />
   );
 }
