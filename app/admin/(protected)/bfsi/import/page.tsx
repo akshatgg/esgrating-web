@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import clsx from "clsx";
 import { apiUpload, ApiError } from "@/lib/api";
-import Card from "@/components/ui/Card";
-import Field from "@/components/ui/Field";
+import PageHeader from "@/components/admin/PageHeader";
+import FileDrop from "@/components/admin/FileDrop";
+import { CARD } from "@/components/admin/styles";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 
@@ -54,64 +56,95 @@ export default function ImportBfsiPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[700px] flex-col gap-4">
-      <h1 className="text-xl font-semibold text-ink">Import BFSI Data (CSV Only)</h1>
-      <Link href="/admin/bfsi" className="text-sm font-medium text-calc-blue hover:underline">
-        ← BFSI Data
-      </Link>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        crumbs={[
+          { label: "Dashboard", href: "/admin" },
+          { label: "BFSI Submissions", href: "/admin/bfsi" },
+          { label: "Import" },
+        ]}
+        title="Import BFSI Data (CSV Only)"
+        description="Add many borrower records at once from a CSV file."
+        actions={
+          <Button variant="adminSecondary" href="/admin/bfsi">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            BFSI Data
+          </Button>
+        }
+      />
 
-      {error ? <Alert variant="error">{error}</Alert> : null}
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <form
+          onSubmit={handleSubmit}
+          noValidate
+          className={clsx(CARD, "flex flex-col gap-5 p-5 sm:p-6")}
+        >
+          {error ? <Alert variant="error">{error}</Alert> : null}
+          {success ? (
+            <Alert variant="success">
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                {success}
+                <Link href="/admin/bfsi" className="font-semibold underline underline-offset-2">
+                  Back to BFSI Data
+                </Link>
+              </span>
+            </Alert>
+          ) : null}
 
-      {success ? (
-        <>
-          <Alert variant="success">{success}</Alert>
-          <Link href="/admin/bfsi" className="text-sm font-medium text-calc-blue hover:underline">
-            ← Back to BFSI Data
-          </Link>
-        </>
-      ) : null}
+          <FileDrop
+            key={inputKey}
+            id="import_file_csv"
+            name="import_file_csv"
+            label="Choose CSV File:"
+            accept=".csv"
+            required
+            prompt="Drop CSV or browse"
+            hint="One borrower per row, with the header shown alongside."
+            file={file}
+            onFile={(f) => {
+              setFile(f);
+              setError(null);
+            }}
+          />
 
-      <Card lift={false}>
-        <div className="mb-5 break-all rounded-md border border-[#cdd6e4] bg-bg-soft p-3 text-[13px] text-[#333]">
-          <strong>Expected CSV header row (case-sensitive):</strong>
-          <br />
-          {EXPECTED_HEADER}
-          <br />
-          <br />
-          <strong>Sample row:</strong>
-          <br />
-          {SAMPLE_ROW}
-          <br />
-          <br />
-          <em>
+          <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+            <Button variant="adminSecondary" href="/admin/bfsi">
+              Cancel
+            </Button>
+            <Button type="submit" variant="adminPrimary" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
+                  Importing…
+                </>
+              ) : (
+                "Import CSV Data"
+              )}
+            </Button>
+          </div>
+        </form>
+
+        <aside aria-labelledby="csv-format-title" className={clsx(CARD, "min-w-0 p-5 sm:p-6")}>
+          <h2 id="csv-format-title" className="text-[15px] font-semibold text-ink">
+            CSV format
+          </h2>
+          <p className="mt-3 text-[13px] font-semibold text-ink">
+            Expected CSV header row (case-sensitive):
+          </p>
+          <pre className="mt-1.5 overflow-x-auto rounded-lg border border-line bg-slate-50 p-3 font-mono text-[11px] leading-relaxed text-ink">
+            {EXPECTED_HEADER}
+          </pre>
+          <p className="mt-3 text-[13px] font-semibold text-ink">Sample row:</p>
+          <pre className="mt-1.5 overflow-x-auto rounded-lg border border-line bg-slate-50 p-3 font-mono text-[11px] leading-relaxed text-ink">
+            {SAMPLE_ROW}
+          </pre>
+          <p className="mt-4 text-[13px] text-muted italic">
             overall_score, grade, and status are optional (leave blank; status defaults to
             &quot;new&quot;). contact_email may be blank. Rows with a blank borrower_name are
             skipped.
-          </em>
-        </div>
-
-        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
-          <Field
-            key={inputKey}
-            label="Choose CSV File:"
-            name="import_file_csv"
-            type="file"
-            accept=".csv"
-            required
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] ?? null)}
-          />
-          <Button type="submit" variant="calcBlue" disabled={submitting} className="w-full">
-            {submitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Importing…
-              </>
-            ) : (
-              "Import CSV Data"
-            )}
-          </Button>
-        </form>
-      </Card>
+          </p>
+        </aside>
+      </div>
     </div>
   );
 }

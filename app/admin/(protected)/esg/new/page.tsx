@@ -2,11 +2,16 @@
 
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import Card from "@/components/ui/Card";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import clsx from "clsx";
 import Field from "@/components/ui/Field";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
+import PageHeader from "@/components/admin/PageHeader";
+import FileDrop from "@/components/admin/FileDrop";
+import NextSteps from "@/components/admin/NextSteps";
+import { FormFooter, FormSection } from "@/components/admin/FormSection";
+import { CARD } from "@/components/admin/styles";
 import { apiUpload, ApiError } from "@/lib/api";
 
 // Same fields/validation as the public ESG form (components/calc/EsgCalculatorForm.tsx),
@@ -101,97 +106,133 @@ export default function NewEsgAssessmentPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold text-ink">New ESG Assessment</h1>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        crumbs={[
+          { label: "Dashboard", href: "/admin" },
+          { label: "ESG Submissions", href: "/admin/esg" },
+          { label: "New assessment" },
+        ]}
+        title="New ESG Assessment"
+        description="Upload a company's report on its behalf and rate it with the ESG model."
+        actions={
+          <Button variant="adminSecondary" href="/admin/esg">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            ESG Submissions
+          </Button>
+        }
+      />
 
-      <Card className="max-w-3xl">
-        <form
-          onSubmit={handleSubmit}
-          className="grid grid-cols-1 gap-x-[22px] gap-y-[18px] min-[701px]:grid-cols-2"
-          noValidate
-        >
-          <Field
-            label="Name"
-            name="name"
-            placeholder="Enter the name"
-            required
-            value={form.name}
-            onChange={update("name")}
-          />
-          <Field
-            label="Email"
-            name="email"
-            type="email"
-            placeholder="Enter the email"
-            required
-            value={form.email}
-            onChange={update("email")}
-          />
-          <Field
-            label="Designation"
-            name="designation"
-            placeholder="Enter the designation"
-            required
-            value={form.designation}
-            onChange={update("designation")}
-          />
-          <Field
-            label="Company Name"
-            name="company_name"
-            placeholder="Enter the company name"
-            required
-            value={form.company_name}
-            onChange={update("company_name")}
-          />
-          <Field
-            label="Mobile Number"
-            name="mobile_number"
-            type="tel"
-            placeholder="Enter the mobile number"
-            required
-            value={form.mobile_number}
-            onChange={update("mobile_number")}
-          />
-          <Field
-            label="Report Financial Year"
-            name="report_year"
-            placeholder="2024-2025"
-            required
-            value={form.report_year}
-            onChange={update("report_year")}
-          />
-          <div className="col-span-full">
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <form onSubmit={handleSubmit} className={clsx(CARD, "min-w-0")} noValidate>
+          <FormSection
+            id="esg-contact"
+            title="Contact person"
+            description="Who the finished report is addressed and emailed to."
+          >
             <Field
-              label="Upload BRSR/Sustainability/Integrated Report"
-              name="report-file"
-              type="file"
-              accept={ACCEPT}
+              label="Name"
+              name="name"
+              placeholder="Enter the name"
               required
-              hint={`PDF, DOC or DOCX, max ${MAX_FILE_MB} MB.`}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] ?? null)}
+              value={form.name}
+              onChange={update("name")}
             />
-          </div>
+            <Field
+              label="Email"
+              name="email"
+              type="email"
+              placeholder="Enter the email"
+              required
+              value={form.email}
+              onChange={update("email")}
+            />
+            <Field
+              label="Designation"
+              name="designation"
+              placeholder="Enter the designation"
+              required
+              value={form.designation}
+              onChange={update("designation")}
+            />
+            <Field
+              label="Mobile Number"
+              name="mobile_number"
+              type="tel"
+              placeholder="Enter the mobile number"
+              required
+              value={form.mobile_number}
+              onChange={update("mobile_number")}
+            />
+          </FormSection>
+
+          <FormSection
+            id="esg-company"
+            title="Company and report"
+            description="The disclosure the rating is built from."
+          >
+            <Field
+              label="Company Name"
+              name="company_name"
+              placeholder="Enter the company name"
+              required
+              value={form.company_name}
+              onChange={update("company_name")}
+            />
+            <Field
+              label="Report Financial Year"
+              name="report_year"
+              placeholder="2024-2025"
+              required
+              value={form.report_year}
+              onChange={update("report_year")}
+            />
+            <div className="col-span-full">
+              <FileDrop
+                id="field-report-file"
+                name="report-file"
+                label="Upload BRSR/Sustainability/Integrated Report"
+                accept={ACCEPT}
+                required
+                prompt="Drop PDF/DOCX or browse"
+                hint={`PDF, DOC or DOCX, max ${MAX_FILE_MB} MB.`}
+                file={file}
+                onFile={setFile}
+              />
+            </div>
+          </FormSection>
 
           {status === "error" && error ? (
-            <div className="col-span-full">
+            <div className="px-5 pb-5 sm:px-6">
               <Alert variant="error">{error}</Alert>
             </div>
           ) : null}
 
-          <div className="col-span-full">
-            <Button type="submit" variant="calcBlue" disabled={status === "submitting"}>
+          <FormFooter>
+            <Button variant="adminSecondary" href="/admin/esg">
+              Cancel
+            </Button>
+            <Button type="submit" variant="adminPrimary" disabled={status === "submitting"}>
               {status === "submitting" ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
                   Creating…
                 </>
               ) : (
                 "Create assessment"
               )}
             </Button>
-          </div>
+          </FormFooter>
         </form>
-      </Card>
+
+        <NextSteps
+          steps={[
+            "The report is saved to ESG Submissions.",
+            "AI analysis starts straight away and takes about 4 minutes.",
+            "You land on the submission, where the report appears when it's ready.",
+          ]}
+        />
+      </div>
     </div>
   );
 }

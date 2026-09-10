@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
+import clsx from "clsx";
 import CalculatorCard, { CALC_GRID_CLASSES } from "@/components/calc/CalculatorCard";
 import Field from "@/components/ui/Field";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
+import FileDrop from "@/components/admin/FileDrop";
+import { FormFooter, FormSection } from "@/components/admin/FormSection";
+import { CARD } from "@/components/admin/styles";
 import { apiFetch, apiUpload, ApiError } from "@/lib/api";
 import type { BfsiOptions } from "@/lib/types";
 
@@ -96,12 +100,39 @@ type BfsiCalculatorFormProps = {
    * instead of showing the public thank-you card, and API errors stay inline
    * with the form values kept ("re-fills values on error", bfsi.md §3). */
   onCreated?: (id: string) => void;
+  /** "public" (default) is the calculator card on the website. "admin" lays
+   * the same fields out in the superadmin console's form style: section
+   * headings, a dropzone and a sticky Cancel / Submit footer. */
+  appearance?: "public" | "admin";
+  /** Admin appearance: where the footer's Cancel goes. */
+  cancelHref?: string;
 };
+
+/** The card around the loading / options-error states: the website's
+ * calculator card, or a console card in admin appearance. */
+function FormShell({
+  admin,
+  className,
+  children,
+}: {
+  admin: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return admin ? (
+    <div className={clsx(CARD, "p-6", className)}>{children}</div>
+  ) : (
+    <CalculatorCard className={className}>{children}</CalculatorCard>
+  );
+}
 
 export default function BfsiCalculatorForm({
   endpoint = "/api/bfsi/submissions",
   onCreated,
+  appearance = "public",
+  cancelHref,
 }: BfsiCalculatorFormProps = {}) {
+  const admin = appearance === "admin";
   const [options, setOptions] = useState<BfsiOptions | null>(null);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [optionsError, setOptionsError] = useState<string | null>(null);
@@ -183,8 +214,17 @@ export default function BfsiCalculatorForm({
     try {
       const res = await apiUpload<{ id?: string } | undefined>(endpoint, body);
       if (onCreated) {
+        // Without an id there is no detail page to go to — say so rather than
+        // navigating to a broken `/admin/bfsi/` URL.
+        if (!res?.id) {
+          setStatus("validation-error");
+          setErrorMessage(
+            "The assessment was saved, but the server didn't return its id. Open it from BFSI Submissions.",
+          );
+          return;
+        }
         // Stay in "submitting" (button disabled) while the caller navigates away.
-        onCreated(res?.id ?? "");
+        onCreated(res.id);
         return;
       }
       setStatus("success");
@@ -208,19 +248,19 @@ export default function BfsiCalculatorForm({
 
   if (optionsLoading) {
     return (
-      <CalculatorCard className="flex flex-col items-center gap-3 py-16 text-center text-muted">
-        <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
+      <FormShell admin={admin} className="flex flex-col items-center gap-3 py-16 text-center text-muted">
+        <Loader2 className="h-6 w-6 motion-safe:animate-spin" aria-hidden="true" />
         <p>Loading form options…</p>
-      </CalculatorCard>
+      </FormShell>
     );
   }
 
   if (optionsError || !options) {
     return (
-      <CalculatorCard className="flex flex-col items-center gap-4 py-16 text-center">
+      <FormShell admin={admin} className="flex flex-col items-center gap-4 py-16 text-center">
         <Alert variant="error">{optionsError ?? "Couldn't load the form options."}</Alert>
         <Button
-          variant="calcNavy"
+          variant={admin ? "adminPrimary" : "calcNavy"}
           onClick={() => {
             setOptionsLoading(true);
             setOptionsError(null);
@@ -229,7 +269,7 @@ export default function BfsiCalculatorForm({
         >
           Retry
         </Button>
-      </CalculatorCard>
+      </FormShell>
     );
   }
 
@@ -251,120 +291,218 @@ export default function BfsiCalculatorForm({
     );
   }
 
+  const fileLabel = `Upload BRSR / Sustainability / Integrated Report (PDF/DOCX, max ${maxFileMb} MB)`;
+
+  const borrowerName = (
+    <Field
+      label="Borrower Name"
+      name="borrower_name"
+      required
+      maxLength={255}
+      value={form.borrower_name}
+      onChange={update("borrower_name")}
+    />
+  );
+  const cinGstin = (
+    <Field
+      label="CIN / GSTIN"
+      name="cin_gstin"
+      placeholder="21-char CIN or 15-char GSTIN"
+      required
+      maxLength={30}
+      value={form.cin_gstin}
+      onChange={update("cin_gstin")}
+    />
+  );
+  const contactEmail = (
+    <Field
+      label="Contact Email"
+      name="contact_email"
+      type="email"
+      required
+      maxLength={255}
+      value={form.contact_email}
+      onChange={update("contact_email")}
+    />
+  );
+  const industry = (
+    <Field
+      as="select"
+      label="Industry"
+      name="industry"
+      required
+      value={form.industry}
+      onChange={handleIndustryChange}
+    >
+      <option value="">Select…</option>
+      {Object.entries(options.industries).map(([key, data]) => (
+        <option key={key} value={key}>
+          {data.label}
+        </option>
+      ))}
+    </Field>
+  );
+  const subSector = (
+    <Field
+      as="select"
+      label="Sub-sector"
+      name="sub_sector"
+      required
+      disabled={!form.industry}
+      value={form.sub_sector}
+      onChange={update("sub_sector")}
+    >
+      <option value="">Select…</option>
+      {subSectors.map((s) => (
+        <option key={s} value={s}>
+          {s}
+        </option>
+      ))}
+    </Field>
+  );
+  const loanAmount = (
+    <Field
+      label="Loan Amount (₹)"
+      name="loan_amount"
+      type="number"
+      min={1}
+      step={0.01}
+      required
+      value={form.loan_amount}
+      onChange={update("loan_amount")}
+    />
+  );
+  const loanPurpose = (
+    <Field
+      as="select"
+      label="Loan Purpose"
+      name="loan_purpose"
+      required
+      value={form.loan_purpose}
+      onChange={update("loan_purpose")}
+    >
+      <option value="">Select…</option>
+      {options.loan_purposes.map((p) => (
+        <option key={p} value={p}>
+          {p}
+        </option>
+      ))}
+    </Field>
+  );
+  const loanType = (
+    <Field
+      as="select"
+      label="Loan Type"
+      name="loan_type"
+      required
+      value={form.loan_type}
+      onChange={update("loan_type")}
+    >
+      <option value="">Select…</option>
+      {options.loan_types.map((t) => (
+        <option key={t} value={t}>
+          {t}
+        </option>
+      ))}
+    </Field>
+  );
+  const outstandingLoans = (
+    <Field
+      label="Existing Outstanding Loans (₹)"
+      name="outstanding_loans"
+      type="number"
+      min={0}
+      step={0.01}
+      required
+      value={form.outstanding_loans}
+      onChange={update("outstanding_loans")}
+    />
+  );
+  const inlineError =
+    status === "validation-error" && errorMessage ? (
+      <Alert variant="error">{errorMessage}</Alert>
+    ) : null;
+  const submitLabel =
+    status === "submitting" ? (
+      <>
+        <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
+        Submitting…
+      </>
+    ) : (
+      "Submit"
+    );
+
+  if (admin) {
+    return (
+      <form onSubmit={handleSubmit} className={clsx(CARD, "min-w-0")} noValidate>
+        <FormSection
+          id="bfsi-borrower"
+          title="Borrower"
+          description="The company applying for the loan."
+        >
+          {borrowerName}
+          {cinGstin}
+          {industry}
+          {subSector}
+        </FormSection>
+        <FormSection id="bfsi-loan" title="Loan" description="What the borrower is asking for.">
+          {loanAmount}
+          {loanPurpose}
+          {loanType}
+          {outstandingLoans}
+        </FormSection>
+        <FormSection
+          id="bfsi-report"
+          title="Contact and report"
+          description="The report is scored; the finished rating goes to this email."
+        >
+          {contactEmail}
+          <div className="col-span-full">
+            <FileDrop
+              id="field-report_file"
+              name="report_file"
+              label={fileLabel}
+              accept={ACCEPT}
+              required
+              prompt="Drop PDF/DOCX or browse"
+              file={file}
+              onFile={setFile}
+            />
+          </div>
+        </FormSection>
+
+        {inlineError ? <div className="px-5 pb-5 sm:px-6">{inlineError}</div> : null}
+
+        <FormFooter>
+          {cancelHref ? (
+            <Button variant="adminSecondary" href={cancelHref}>
+              Cancel
+            </Button>
+          ) : null}
+          <Button type="submit" variant="adminPrimary" disabled={status === "submitting"}>
+            {submitLabel}
+          </Button>
+        </FormFooter>
+      </form>
+    );
+  }
+
   return (
     <CalculatorCard>
       <form onSubmit={handleSubmit} className={CALC_GRID_CLASSES} noValidate>
-        <Field
-          label="Borrower Name"
-          name="borrower_name"
-          required
-          maxLength={255}
-          value={form.borrower_name}
-          onChange={update("borrower_name")}
-        />
-        <Field
-          label="CIN / GSTIN"
-          name="cin_gstin"
-          placeholder="21-char CIN or 15-char GSTIN"
-          required
-          maxLength={30}
-          value={form.cin_gstin}
-          onChange={update("cin_gstin")}
-        />
-        <Field
-          label="Contact Email"
-          name="contact_email"
-          type="email"
-          required
-          maxLength={255}
-          value={form.contact_email}
-          onChange={update("contact_email")}
-        />
-        <Field
-          as="select"
-          label="Industry"
-          name="industry"
-          required
-          value={form.industry}
-          onChange={handleIndustryChange}
-        >
-          <option value="">Select…</option>
-          {Object.entries(options.industries).map(([key, data]) => (
-            <option key={key} value={key}>
-              {data.label}
-            </option>
-          ))}
-        </Field>
-        <Field
-          as="select"
-          label="Sub-sector"
-          name="sub_sector"
-          required
-          disabled={!form.industry}
-          value={form.sub_sector}
-          onChange={update("sub_sector")}
-        >
-          <option value="">Select…</option>
-          {subSectors.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </Field>
-        <Field
-          label="Loan Amount (₹)"
-          name="loan_amount"
-          type="number"
-          min={1}
-          step={0.01}
-          required
-          value={form.loan_amount}
-          onChange={update("loan_amount")}
-        />
-        <Field
-          as="select"
-          label="Loan Purpose"
-          name="loan_purpose"
-          required
-          value={form.loan_purpose}
-          onChange={update("loan_purpose")}
-        >
-          <option value="">Select…</option>
-          {options.loan_purposes.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </Field>
-        <Field
-          as="select"
-          label="Loan Type"
-          name="loan_type"
-          required
-          value={form.loan_type}
-          onChange={update("loan_type")}
-        >
-          <option value="">Select…</option>
-          {options.loan_types.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </Field>
-        <Field
-          label="Existing Outstanding Loans (₹)"
-          name="outstanding_loans"
-          type="number"
-          min={0}
-          step={0.01}
-          required
-          value={form.outstanding_loans}
-          onChange={update("outstanding_loans")}
-        />
+        {borrowerName}
+        {cinGstin}
+        {contactEmail}
+        {industry}
+        {subSector}
+        {loanAmount}
+        {loanPurpose}
+        {loanType}
+        {outstandingLoans}
 
         <div className="col-span-full">
           <Field
-            label={`Upload BRSR / Sustainability / Integrated Report (PDF/DOCX, max ${maxFileMb} MB)`}
+            label={fileLabel}
             name="report_file"
             type="file"
             accept={ACCEPT}
@@ -373,22 +511,11 @@ export default function BfsiCalculatorForm({
           />
         </div>
 
-        {status === "validation-error" && errorMessage ? (
-          <div className="col-span-full">
-            <Alert variant="error">{errorMessage}</Alert>
-          </div>
-        ) : null}
+        {inlineError ? <div className="col-span-full">{inlineError}</div> : null}
 
         <div className="col-span-full">
           <Button type="submit" variant="calcNavy" disabled={status === "submitting"}>
-            {status === "submitting" ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Submitting…
-              </>
-            ) : (
-              "Submit"
-            )}
+            {submitLabel}
           </Button>
         </div>
       </form>
