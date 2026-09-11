@@ -82,6 +82,26 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return handle<T>(res);
 }
 
+/** Same-origin request against `/api/...` that returns a binary body (CSV,
+ * PDF, etc.) as a `Blob` rather than JSON. Errors go through the same
+ * `readDetail`/`ApiError` path as `apiFetch`. */
+export async function apiFetchBlob(path: string, init?: RequestInit): Promise<Blob> {
+  let res: Response;
+  try {
+    res = await fetch(path, { credentials: "include", ...init });
+  } catch {
+    throw new ApiError(UNREACHABLE_MESSAGE, 0);
+  }
+  if (!res.ok) {
+    if (res.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    }
+    const detail = await readDetail(res);
+    throw new ApiError(detail ?? "Request failed", res.status);
+  }
+  return res.blob();
+}
+
 /** Same-origin multipart upload against `/api/...`. */
 export async function apiUpload<T>(
   path: string,

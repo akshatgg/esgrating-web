@@ -9,6 +9,8 @@ import {
   CalendarRange,
   Clock,
   Download,
+  FileSpreadsheet,
+  Loader2,
   Mail,
   PencilLine,
   Phone,
@@ -17,8 +19,8 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import type { EsgSubmission } from "@/lib/types";
-import { apiFetch, ApiError } from "@/lib/api";
-import { formatDate } from "@/lib/format";
+import { apiFetch, apiFetchBlob, ApiError } from "@/lib/api";
+import { formatDate, slugify } from "@/lib/format";
 import { downloadPdf, pdfBlob, ESG_PDF_OPTS } from "@/lib/pdf";
 import type { EsgEffective } from "@/lib/reportEdits";
 import Alert from "@/components/ui/Alert";
@@ -64,6 +66,7 @@ export default function EsgSubmissionDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [confirmRerun, setConfirmRerun] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -142,6 +145,33 @@ export default function EsgSubmissionDetailPage() {
       setActionError("Couldn't generate the PDF. Please try again.");
     } finally {
       setDownloading(false);
+    }
+  }
+
+  async function handleExportCsv() {
+    if (!sub?.company_id) return;
+    setExportingCsv(true);
+    setActionError(null);
+    try {
+      const blob = await apiFetchBlob(`/api/admin/esg/export_csv/${sub.company_id}`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `esg-page-scores-${slugify(sub.company_name)}-${id.slice(0, 6)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setActionError(
+          "Page-by-page scores aren't available for this report (it was scored from a cached analysis).",
+        );
+      } else {
+        setActionError(err instanceof ApiError ? err.message : "Something went wrong.");
+      }
+    } finally {
+      setExportingCsv(false);
     }
   }
 
@@ -272,6 +302,21 @@ export default function EsgSubmissionDetailPage() {
                       email={sub.email}
                       unavailableReason={reportGate}
                     />
+                    {sub.company_id ? (
+                      <Button
+                        variant="adminSecondary"
+                        onClick={handleExportCsv}
+                        disabled={exportingCsv}
+                        aria-label="Download page scores as CSV"
+                      >
+                        {exportingCsv ? (
+                          <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
+                        ) : (
+                          <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
+                        )}
+                        {exportingCsv ? "Preparing…" : "Download page scores (CSV)"}
+                      </Button>
+                    ) : null}
                     {editor.unavailable ? null : (
                       <Button
                         variant="adminSecondary"
