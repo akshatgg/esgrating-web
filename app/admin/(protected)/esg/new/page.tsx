@@ -19,7 +19,7 @@ import { apiUpload, ApiError } from "@/lib/api";
 const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const MOBILE_RE = /^(\+91[\-\s]?)?[0]?(91)?[789]\d{9}$/;
 
-const MAX_FILE_MB = 5;
+const MAX_FILE_MB = 20;
 const ACCEPT = ".pdf,.doc,.docx";
 
 type FormState = {
