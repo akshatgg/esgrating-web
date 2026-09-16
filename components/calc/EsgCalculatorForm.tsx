@@ -12,7 +12,9 @@ import { apiUpload, ApiError } from "@/lib/api";
 // (esg.md §B4 — `site/dashboard/esg-report.php`), reused here since the
 // public CF7 form otherwise relies only on native `type=` validation.
 const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const MOBILE_RE = /^(\+91[\-\s]?)?[0]?(91)?[789]\d{9}$/;
+// Any country: optional +, then 7-15 digits (E.164 maximum); separators ignored.
+const MOBILE_RE = /^\+?\d{7,15}$/;
+const PHONE_SEPARATORS_RE = /[\s\-().]/g;
 
 const MAX_FILE_MB = 20;
 const ACCEPT = ".pdf,.doc,.docx";
@@ -46,7 +48,8 @@ function validate(form: FormState, file: File | null): string | null {
   if (!EMAIL_RE.test(form.email.trim())) return "Please enter a valid email";
   if (!form.designation.trim()) return "Please enter your designation.";
   if (!form.company_name.trim()) return "Please enter your company name.";
-  if (!MOBILE_RE.test(form.mobile_number.trim())) return "Please enter a valid phone number";
+  if (!MOBILE_RE.test(form.mobile_number.trim().replace(PHONE_SEPARATORS_RE, "")))
+    return "Please enter a valid phone number";
   if (!form.report_year.trim()) return "Please enter the report financial year.";
 
   if (!file) return "Please upload your BRSR / Sustainability / Integrated Report.";
