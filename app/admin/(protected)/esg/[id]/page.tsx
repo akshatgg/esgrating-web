@@ -29,6 +29,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import AnalyzePanel from "@/components/admin/AnalyzePanel";
 import CacheToggle from "@/components/admin/CacheToggle";
 import SendReportButton from "@/components/admin/SendReportButton";
+import RatingSummaryButton from "@/components/admin/RatingSummaryButton";
 import PageHeader from "@/components/admin/PageHeader";
 import DetailRail from "@/components/admin/DetailRail";
 import ReportPreview from "@/components/admin/ReportPreview";
@@ -346,7 +347,7 @@ export default function EsgSubmissionDetailPage() {
                       fieldName="pdfs"
                       attachments={
                         viewFinal?.kpi_coverage
-                          ? ["ESG Rating Report", "Detailed Report"]
+                          ? ["ESG Rating Report", "Detailed Report", "Rating Summary (Word)"]
                           : ["ESG Rating Report"]
                       }
                       unavailableReason={reportGate}
@@ -365,6 +366,13 @@ export default function EsgSubmissionDetailPage() {
                         )}
                         {exportingCsv ? "Preparing…" : "Download page scores (CSV)"}
                       </Button>
+                    ) : null}
+                    {viewFinal?.kpi_coverage ? (
+                      <RatingSummaryButton
+                        endpoint={`/api/admin/esg/submissions/${id}/summary`}
+                        fileName={`esg-rating-summary-${slugify(sub.company_name)}-${id.slice(0, 6)}.docx`}
+                        onError={setActionError}
+                      />
                     ) : null}
                     {editor.unavailable ? null : (
                       <Button

@@ -32,6 +32,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import AnalyzePanel from "@/components/admin/AnalyzePanel";
 import CacheToggle from "@/components/admin/CacheToggle";
 import SendReportButton from "@/components/admin/SendReportButton";
+import RatingSummaryButton from "@/components/admin/RatingSummaryButton";
 import PageHeader from "@/components/admin/PageHeader";
 import DetailRail from "@/components/admin/DetailRail";
 import ReportPreview from "@/components/admin/ReportPreview";
@@ -348,7 +349,11 @@ export default function BfsiSubmissionDetailPage() {
                       templateEndpoint="/api/admin/bfsi/mail-template"
                       email={sub.contact_email}
                       fieldName="pdfs"
-                      attachments={["One-Page Rating Report", "Detailed Report"]}
+                      attachments={
+                        sub.ai_analysis?.kpi_coverage
+                          ? ["One-Page Rating Report", "Detailed Report", "Rating Summary (Word)"]
+                          : ["One-Page Rating Report", "Detailed Report"]
+                      }
                       unavailableReason={reportGate}
                     />
                     <Button
@@ -364,6 +369,13 @@ export default function BfsiSubmissionDetailPage() {
                       )}
                       {exportingCsv ? "Preparing…" : "Download page scores (CSV)"}
                     </Button>
+                    {sub.ai_analysis?.kpi_coverage ? (
+                      <RatingSummaryButton
+                        endpoint={`/api/admin/bfsi/submissions/${id}/summary`}
+                        fileName={`bfsi-rating-summary-${slugify(sub.borrower_name || "report")}-${id.slice(0, 6)}.docx`}
+                        onError={setActionError}
+                      />
+                    ) : null}
                     {editor.unavailable ? null : (
                       <Button
                         variant="adminSecondary"
