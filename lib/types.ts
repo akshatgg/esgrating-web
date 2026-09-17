@@ -46,6 +46,9 @@ export type KpiCoverageCategory = {
   score: number;
   /** "kpi_score" when each KPI was scored 0–100; absent on strong/partial results. */
   method?: string;
+  /** The pillar score an analyst typed in the report editor, when it differs from the
+   * KPI total (`score`). Every report shows this number, with the KPI total beside it. */
+  analyst_score?: number;
   kpis: Array<{
     kpi: string;
     level: KpiLevel;

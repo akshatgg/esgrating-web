@@ -495,7 +495,7 @@ export function PillarScore({
         <>
           <span className={s.tag}>manual</span>
           <button type="button" className={s.link} onClick={() => ctx.setPillar?.(cat, null)}>
-            ↺ use page average
+            {ctx.kpisEditable?.[cat] ? "↺ use KPI score" : "↺ use page average"}
           </button>
         </>
       ) : null}

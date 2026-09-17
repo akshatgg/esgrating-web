@@ -222,8 +222,9 @@ export default function EsgSubmissionDetailPage() {
   const final = sub.final;
   const showReport = !running && !!final;
   const editing = editor.editing;
-  // Editing works on the one-page report, so the Detailed tab steps aside meanwhile.
-  const detailedView = tab === "detailed" && !editing;
+  // Both tabs can be edited: pillar scores and text on the one-page report, KPI scores in
+  // the Detailed Report's KPI Assessment. Every edit previews in both.
+  const detailedView = tab === "detailed";
   // The effective (edited / previewed) report when there is one, else the
   // stored `final` exactly as before.
   const viewFinal = editor.liveEffective?.final ?? final;
@@ -401,7 +402,7 @@ export default function EsgSubmissionDetailPage() {
                 </div>
               )}
 
-              {!editing ? (
+              {showReport ? (
                 <div
                   role="tablist"
                   aria-label="Report view"
@@ -429,7 +430,9 @@ export default function EsgSubmissionDetailPage() {
                 <ReportPreview
                   caption={
                     editing
-                      ? "Edits preview live. Save to use them in the PDF and the emailed copy."
+                      ? detailedView
+                        ? "Change a KPI score to recompute its pillar, the overall score and grades in every report. Save to keep it."
+                        : "Edits preview live in both reports. Save to use them in the PDFs, the summary and the emailed copy."
                       : detailedView
                         ? "The full KPI and page-by-page working behind the rating. Downloads as its own PDF."
                         : "The PDF and the emailed copy match this sheet."
@@ -486,8 +489,9 @@ export default function EsgSubmissionDetailPage() {
                         Page scores
                       </h2>
                       <p className="mt-0.5 text-[13px] text-muted">
-                        Each pillar score is the average of its page scores. Change one to recompute
-                        the average, the composite score and the grades.
+                        {viewFinal?.kpi_coverage
+                          ? "Pillar scores come from the KPI scores (Detailed Report tab), so page scores here are for reference."
+                          : "Each pillar score is the average of its page scores. Change one to recompute the average, the composite score and the grades."}
                       </p>
                     </header>
                     <div className="overflow-x-auto border-t border-line px-5 pt-2 pb-4">
