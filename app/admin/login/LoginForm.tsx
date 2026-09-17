@@ -8,6 +8,7 @@ import Card from "@/components/ui/Card";
 import Field from "@/components/ui/Field";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
+import Loader from "@/components/ui/Loader";
 import { apiFetch, ApiError } from "@/lib/api";
 
 const REQUIRED_MESSAGE = "Please fill all fields!";
@@ -50,7 +51,17 @@ export default function LoginForm({ next = "/admin" }: { next?: string }) {
   }
 
   return (
-    <Card className="w-full max-w-md p-6 sm:p-9" lift={false}>
+    <Card
+      className="relative w-full max-w-md overflow-hidden p-6 sm:p-9"
+      lift={false}
+      aria-busy={status === "submitting"}
+    >
+      {status === "submitting" ? (
+        <Loader
+          label="Logging in…"
+          className="absolute inset-0 z-10 bg-white/85 backdrop-blur-[2px]"
+        />
+      ) : null}
       <div className="mb-8 flex flex-col items-center gap-4 text-center">
         <Image
           src="/brand/logo.jpg"
