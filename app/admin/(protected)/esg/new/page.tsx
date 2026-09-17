@@ -17,9 +17,11 @@ import { apiUpload, ApiError } from "@/lib/api";
 // Same fields/validation as the public ESG form (components/calc/EsgCalculatorForm.tsx),
 // ported from esg-report.php's client validation (esg.md §B4).
 const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const MOBILE_RE = /^(\+91[\-\s]?)?[0]?(91)?[789]\d{9}$/;
+// Any country: optional +, then 7-15 digits (E.164 maximum); separators ignored.
+const MOBILE_RE = /^\+?\d{7,15}$/;
+const PHONE_SEPARATORS_RE = /[\s\-().]/g;
 
-const MAX_FILE_MB = 10; // matches the API's MAX_FILE_BYTES (app/esg/submissions.py)
+const MAX_FILE_MB = 20; // matches the API's MAX_FILE_BYTES (app/esg/submissions.py)
 const ACCEPT = ".pdf,.doc,.docx";
 
 type FormState = {
@@ -47,7 +49,8 @@ function validate(form: FormState, file: File | null): string | null {
   if (!EMAIL_RE.test(form.email.trim())) return "Please enter a valid email";
   if (!form.designation.trim()) return "Please enter the designation.";
   if (!form.company_name.trim()) return "Please enter the company name.";
-  if (!MOBILE_RE.test(form.mobile_number.trim())) return "Please enter a valid phone number";
+  if (!MOBILE_RE.test(form.mobile_number.trim().replace(PHONE_SEPARATORS_RE, "")))
+    return "Please enter a valid phone number";
   if (!form.report_year.trim()) return "Please enter the report financial year.";
 
   if (!file) return "Please upload a BRSR / Sustainability / Integrated Report.";
