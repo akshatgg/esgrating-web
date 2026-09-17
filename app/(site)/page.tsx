@@ -12,15 +12,19 @@ import {
   AUTOMATED_RATING,
   RECENT_ARTICLES_HEADING,
 } from "@/content/home";
-import { postsByDateDesc } from "@/content/blog";
+import BlogPostCard from "@/components/blog/BlogPostCard";
+import { getPublishedPosts } from "@/lib/server-blog-api";
 
 // Title and description come from the root layout's defaults.
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-export default function Home() {
-  const recentPosts = postsByDateDesc().slice(0, 3);
+export default async function Home() {
+  // Newest first, whatever the /blogs display order.
+  const recentPosts = (await getPublishedPosts())
+    .toSorted((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? ""))
+    .slice(0, 3);
 
   return (
     <>
@@ -127,39 +131,25 @@ export default function Home() {
       </Section>
 
       {/* Recent Article and News */}
-      <Section
-        className="relative"
-        style={{
-          backgroundImage: "url(/images/shared/bg-shape.png)",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        <h2 className="mb-10 text-center font-display text-2xl font-semibold text-navy md:text-3xl">
-          {RECENT_ARTICLES_HEADING}
-        </h2>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {recentPosts.map((post) => (
-            <Link key={post.slug} href={`/blogs/${post.slug}`} className="block">
-              <Card lift className="flex h-full flex-col gap-4 p-0 overflow-hidden">
-                <div className="relative aspect-[16/10] w-full">
-                  <Image
-                    src={post.image}
-                    alt=""
-                    fill
-                    sizes="(min-width: 768px) 33vw, 100vw"
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex flex-1 flex-col gap-2 p-6 pt-0">
-                  <h3 className="font-display text-lg font-semibold text-navy">{post.title}</h3>
-                  <span className="mt-auto text-sm font-medium text-calc-blue">Read more</span>
-                </div>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </Section>
+      {recentPosts.length > 0 ? (
+        <Section
+          className="relative"
+          style={{
+            backgroundImage: "url(/images/shared/bg-shape.png)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          <h2 className="mb-10 text-center font-display text-2xl font-semibold text-navy md:text-3xl">
+            {RECENT_ARTICLES_HEADING}
+          </h2>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {recentPosts.map((post) => (
+              <BlogPostCard key={post.id} post={post} headingLevel="h3" />
+            ))}
+          </div>
+        </Section>
+      ) : null}
     </>
   );
 }

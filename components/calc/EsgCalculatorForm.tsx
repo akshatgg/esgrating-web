@@ -16,7 +16,7 @@ const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const MOBILE_RE = /^\+?\d{7,15}$/;
 const PHONE_SEPARATORS_RE = /[\s\-().]/g;
 
-const MAX_FILE_MB = 20;
+const MAX_FILE_MB = 20; // matches the API's MAX_FILE_BYTES (app/esg/submissions.py)
 const ACCEPT = ".pdf,.doc,.docx";
 
 const SUCCESS_MESSAGE = "Your ESG Rating will be sent to your registered email. Thank you!";

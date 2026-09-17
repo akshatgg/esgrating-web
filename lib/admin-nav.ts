@@ -7,6 +7,7 @@ import {
   Landmark,
   LayoutDashboard,
   Mail,
+  Newspaper,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,6 +25,7 @@ const ESG_SUBMISSIONS: AdminNavItem = { label: "ESG Submissions", href: "/admin/
 const BFSI_SUBMISSIONS: AdminNavItem = { label: "BFSI Submissions", href: "/admin/bfsi", icon: Landmark };
 const RATED_COMPANIES: AdminNavItem = { label: "Rated companies", href: RATED_COMPANIES_HREF, icon: BarChart3 };
 const MESSAGES: AdminNavItem = { label: "Messages", href: "/admin/messages", icon: Mail };
+const BLOG: AdminNavItem = { label: "Blog", href: "/admin/blog", icon: Newspaper };
 
 /** Every admin destination — the Profile dropdown and the public-site account
  * menu. "Rated companies" is a shortcut into ESG Submissions, not a sidebar tab. */
@@ -33,6 +35,7 @@ export const ADMIN_PAGES: AdminNavItem[] = [
   BFSI_SUBMISSIONS,
   RATED_COMPANIES,
   MESSAGES,
+  BLOG,
 ];
 
 export const NEW_ASSESSMENTS: AdminNavItem[] = [
@@ -43,6 +46,7 @@ export const NEW_ASSESSMENTS: AdminNavItem[] = [
 export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   { label: "Overview", items: [DASHBOARD] },
   { label: "Submissions", items: [ESG_SUBMISSIONS, BFSI_SUBMISSIONS] },
+  { label: "Content", items: [BLOG] },
   { label: "Data", items: [MESSAGES] },
   { label: "Quick actions", items: NEW_ASSESSMENTS },
 ];

@@ -137,6 +137,19 @@ export default function RatedCompanyPage() {
               <Download className="h-4 w-4" aria-hidden="true" />
               {downloading ? "Preparing…" : "Download one-pager PDF"}
             </Button>
+            {/* The one-pager is drawn from the rating's fields, so editing the rating
+                is editing the report. Same modal as the rail's Edit, which sits below
+                the preview under 2xl and is easy to miss. */}
+            <Button
+              variant="adminSecondary"
+              onClick={() => {
+                setNotice(null);
+                setEditing(true);
+              }}
+            >
+              <Pencil className="h-4 w-4" aria-hidden="true" />
+              Edit report
+            </Button>
           </div>
 
           <ReportPreview caption={`Downloads as ${filename}`}>

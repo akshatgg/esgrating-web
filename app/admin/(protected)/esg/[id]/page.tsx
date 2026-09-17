@@ -27,6 +27,7 @@ import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import AnalyzePanel from "@/components/admin/AnalyzePanel";
+import CacheToggle from "@/components/admin/CacheToggle";
 import SendReportButton from "@/components/admin/SendReportButton";
 import PageHeader from "@/components/admin/PageHeader";
 import DetailRail from "@/components/admin/DetailRail";
@@ -42,10 +43,17 @@ import {
 } from "@/components/admin/Badge";
 import { CARD } from "@/components/admin/styles";
 import EsgReport, { ESG_REPORT_PDF_FILENAME } from "@/components/reports/EsgReport";
+import EsgDetailedReport from "@/components/reports/EsgDetailedReport";
 import { ReportEditProvider } from "@/components/reports/edit/ReportEdit";
 import PageScoresTables from "@/components/reports/edit/PageScoresPanel";
 
 const PDF_FILENAME = ESG_REPORT_PDF_FILENAME;
+
+/** The one-page ESG Rating Report and the Detailed Report, side by side as tabs. */
+const REPORT_TABS = [
+  ["rating", "ESG Rating Report"],
+  ["detailed", "Detailed Report"],
+] as const;
 
 const LIST_CRUMBS = [
   { label: "Dashboard", href: "/admin" },
@@ -68,7 +76,15 @@ export default function EsgSubmissionDetailPage() {
   const [downloading, setDownloading] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
   const [confirmRerun, setConfirmRerun] = useState(false);
+  // Off by default: every run scores the report fresh unless the admin ticks the box.
+  const [useCache, setUseCache] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const [tab, setTab] = useState<(typeof REPORT_TABS)[number][0]>("rating");
+  const detailedRef = useRef<HTMLDivElement>(null);
+  // Off-screen copy of the rating report while the Detailed tab shows, so Send
+  // report can still attach the one-page PDF.
+  const pdfReportRef = useRef<HTMLDivElement>(null);
+  const pdfDetailedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,7 +137,10 @@ export default function EsgSubmissionDetailPage() {
         : s,
     );
     try {
-      await apiFetch(`/api/admin/esg/submissions/${id}/analyze`, { method: "POST" });
+      await apiFetch(
+        `/api/admin/esg/submissions/${id}/analyze?use_cache=${useCache}`,
+        { method: "POST" },
+      );
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Something went wrong.");
     } finally {
@@ -136,11 +155,14 @@ export default function EsgSubmissionDetailPage() {
   }
 
   async function handleDownload() {
-    if (!reportRef.current) return;
+    // Downloads whichever report the tabs show.
+    const detailed = tab === "detailed" && !editor.editing;
+    const el = detailed ? detailedRef.current : reportRef.current;
+    if (!el) return;
     setDownloading(true);
     setActionError(null);
     try {
-      await downloadPdf(reportRef.current, PDF_FILENAME, ESG_PDF_OPTS);
+      await downloadPdf(el, detailed ? `esg-detailed-report-${id}.pdf` : PDF_FILENAME, ESG_PDF_OPTS);
     } catch {
       setActionError("Couldn't generate the PDF. Please try again.");
     } finally {
@@ -153,7 +175,10 @@ export default function EsgSubmissionDetailPage() {
     setExportingCsv(true);
     setActionError(null);
     try {
-      const blob = await apiFetchBlob(`/api/admin/esg/export_csv/${sub.company_id}`);
+      // submission_id: export only the run behind this report, not every run of the company.
+      const blob = await apiFetchBlob(
+        `/api/admin/esg/export_csv/${sub.company_id}?submission_id=${id}`,
+      );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -196,6 +221,8 @@ export default function EsgSubmissionDetailPage() {
   const final = sub.final;
   const showReport = !running && !!final;
   const editing = editor.editing;
+  // Editing works on the one-page report, so the Detailed tab steps aside meanwhile.
+  const detailedView = tab === "detailed" && !editing;
   // The effective (edited / previewed) report when there is one, else the
   // stored `final` exactly as before.
   const viewFinal = editor.liveEffective?.final ?? final;
@@ -239,7 +266,12 @@ export default function EsgSubmissionDetailPage() {
           {actionError ? <Alert variant="error">{actionError}</Alert> : null}
           <ReportEditAnnouncer message={editor.announcement} />
 
-          {running || !final || !viewFinal ? (
+          {!running && !final && !sub.file_path ? (
+            <div className={clsx(CARD, "p-5 text-sm text-muted")}>
+              Imported from the old calculator. It never produced a report for this file, and
+              the original file isn&apos;t available here, so it can&apos;t be analysed.
+            </div>
+          ) : running || !final || !viewFinal ? (
             <AnalyzePanel
               status={running ? "running" : sub.analysis_status}
               error={sub.analysis_error}
@@ -292,14 +324,31 @@ export default function EsgSubmissionDetailPage() {
                       title={reportGate ?? undefined}
                     >
                       <Download className="h-4 w-4" aria-hidden="true" />
-                      {downloading ? "Preparing…" : "Download PDF"}
+                      {downloading
+                        ? "Preparing…"
+                        : detailedView
+                          ? "Download Detailed Report (PDF)"
+                          : "Download PDF"}
                     </Button>
                     <SendReportButton
-                      getPdfs={async () => [
-                        await pdfBlob(reportRef.current as HTMLElement, ESG_PDF_OPTS),
-                      ]}
+                      getPdfs={async () => {
+                        // Off-screen copies of both reports (below), whichever tab shows.
+                        // Order matters: router_admin.py ESG_SEND_FILE_NAMES.
+                        const blobs = [await pdfBlob(pdfReportRef.current as HTMLElement, ESG_PDF_OPTS)];
+                        if (viewFinal?.kpi_coverage && pdfDetailedRef.current) {
+                          blobs.push(await pdfBlob(pdfDetailedRef.current, ESG_PDF_OPTS));
+                        }
+                        return blobs;
+                      }}
                       endpoint={`/api/admin/esg/submissions/${id}/send`}
+                      templateEndpoint="/api/admin/esg/mail-template"
                       email={sub.email}
+                      fieldName="pdfs"
+                      attachments={
+                        viewFinal?.kpi_coverage
+                          ? ["ESG Rating Report", "Detailed Report"]
+                          : ["ESG Rating Report"]
+                      }
                       unavailableReason={reportGate}
                     />
                     {sub.company_id ? (
@@ -328,29 +377,96 @@ export default function EsgSubmissionDetailPage() {
                       </Button>
                     )}
                   </div>
-                  <Button variant="adminGhost" onClick={requestAnalyze}>
-                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                    Re-run analysis
-                  </Button>
+                  {sub.file_path ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <CacheToggle checked={useCache} onChange={setUseCache} />
+                      <Button variant="adminGhost" onClick={requestAnalyze}>
+                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                        Re-run analysis
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="text-[13px] text-muted">
+                      Imported from the old calculator — no original file to re-run.
+                    </span>
+                  )}
                 </div>
               )}
+
+              {!editing ? (
+                <div
+                  role="tablist"
+                  aria-label="Report view"
+                  className="flex self-start gap-1 rounded-xl border border-line bg-white p-1"
+                >
+                  {REPORT_TABS.map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      aria-selected={tab === key}
+                      onClick={() => setTab(key)}
+                      className={clsx(
+                        "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+                        tab === key ? "bg-navy text-white" : "text-muted hover:text-ink",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
 
               <ReportEditProvider value={editing ? editor.editCtx : editor.savedCtx}>
                 <ReportPreview
                   caption={
                     editing
                       ? "Edits preview live. Save to use them in the PDF and the emailed copy."
-                      : "The PDF and the emailed copy match this sheet."
+                      : detailedView
+                        ? "The full KPI and page-by-page working behind the rating. Downloads as its own PDF."
+                        : "The PDF and the emailed copy match this sheet."
                   }
                 >
-                  <EsgReport
-                    ref={reportRef}
-                    final={viewFinal}
-                    yearScore={sub.year_score}
-                    companyName={sub.company_name}
-                    fy={sub.report_year}
-                  />
+                  {detailedView ? (
+                    <EsgDetailedReport
+                      ref={detailedRef}
+                      final={viewFinal}
+                      companyName={sub.company_name}
+                      fy={sub.report_year}
+                      pages={editor.pages}
+                    />
+                  ) : (
+                    <EsgReport
+                      ref={reportRef}
+                      final={viewFinal}
+                      yearScore={sub.year_score}
+                      companyName={sub.company_name}
+                      fy={sub.report_year}
+                    />
+                  )}
                 </ReportPreview>
+                {/* Off-screen copies of both reports for Send report — whichever tab
+                    shows. Not display:none, so the Chart.js canvases get a real size. */}
+                {!editing ? (
+                  <div aria-hidden="true" inert className="pointer-events-none fixed top-0 left-[-10000px]">
+                    <EsgReport
+                      ref={pdfReportRef}
+                      final={viewFinal}
+                      yearScore={sub.year_score}
+                      companyName={sub.company_name}
+                      fy={sub.report_year}
+                    />
+                    {viewFinal.kpi_coverage ? (
+                      <EsgDetailedReport
+                        ref={pdfDetailedRef}
+                        final={viewFinal}
+                        companyName={sub.company_name}
+                        fy={sub.report_year}
+                        pages={editor.pages}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {editing ? (
                   <section
@@ -386,7 +502,7 @@ export default function EsgSubmissionDetailPage() {
           }
           title="Submission details"
           badge={<StatusBadge state={submissionState(sub)} label={submissionStatusLabel(sub)} />}
-          fileHref={`/api/admin/esg/submissions/${id}/file`}
+          fileHref={sub.file_path ? `/api/admin/esg/submissions/${id}/file` : undefined}
           rows={[
             { label: "Name", value: sub.name, icon: User },
             { label: "Email", value: sub.email, icon: Mail },
