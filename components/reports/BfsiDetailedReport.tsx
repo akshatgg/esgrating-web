@@ -1,11 +1,12 @@
 import { forwardRef, Fragment, type ReactNode } from "react";
 import type { ChartOptions } from "chart.js";
-import type {
-  BfsiCategory,
-  BfsiOverall,
-  BfsiReason,
-  BfsiSubmission,
-  Grade,
+import {
+  KPI_SCORE_METHOD,
+  type BfsiCategory,
+  type BfsiOverall,
+  type BfsiReason,
+  type BfsiSubmission,
+  type Grade,
 } from "@/lib/types";
 import { bfsiGrade, GRADE_COLORS } from "@/lib/grades";
 import { asArray, formatUtc, numberFormat, phpFloat } from "@/lib/format";
@@ -51,7 +52,18 @@ const DOUGHNUT_OPTIONS: ChartOptions<"doughnut"> = {
   animation: false,
 };
 
-// report.php:257-262 — ranges match bfsi_grade() exactly.
+// KPI-scored reports grade on whole numbers, like the ESG calculator
+// (esgratings-api app/bfsi/scoring.py bfsi_grade(whole=True)).
+const SCORE_SCALE_WHOLE: ReadonlyArray<readonly [string, Grade, string]> = [
+  ["> 90", "A+", "Outstanding"],
+  ["80 – 90", "A", "Excellent"],
+  ["71 – 79", "B+", "Very Good"],
+  ["61 – 70", "B", "Good"],
+  ["40 – 60", "C", "Average"],
+  ["< 40", "D", "Below Average"],
+];
+
+// report.php:257-262 — ranges match bfsi_grade() exactly (older reports).
 const SCORE_SCALE: ReadonlyArray<readonly [string, Grade, string]> = [
   ["> 90", "A+", "Outstanding"],
   ["80 – 90", "A", "Excellent"],
@@ -125,6 +137,7 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
     const reasons = ai.reasons ?? {};
     // PHP `!empty($ai['reasons'])`: shown whenever the reasons map has keys.
     const hasReasons = Object.keys(reasons).length > 0;
+    const kpiScored = ai?.scoring_method === KPI_SCORE_METHOD;
 
     return (
       <div ref={ref} className={styles.card}>
@@ -210,7 +223,7 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
                     <b>{numberFormat((max * score) / 100, 2)}</b>
                   </td>
                   <td>{phpFloat(max)}</td>
-                  <td>{(grades?.[p.cat] ?? bfsiGrade(score)).grade}</td>
+                  <td>{(grades?.[p.cat] ?? bfsiGrade(score, kpiScored)).grade}</td>
                 </tr>
               );
             })}
@@ -240,8 +253,11 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
           <b>
             {overall.grade} — {overall.label}
           </b>
-          ), based on a weighted analysis of the uploaded sustainability/ESG report (E:{" "}
-          {phpFloat(scores.e)}, S: {phpFloat(scores.s)}, G: {phpFloat(scores.g)}).
+          ),{" "}
+          {kpiScored
+            ? `based on how well the uploaded sustainability/ESG report proves the ESG KPIs of each pillar, weighted for the ${overall.weightage_row} loan type`
+            : "based on a weighted analysis of the uploaded sustainability/ESG report"}{" "}
+          (E: {phpFloat(scores.e)}, S: {phpFloat(scores.s)}, G: {phpFloat(scores.g)}).
         </p>
 
         {/* 5. Risks, improvements, climate, governance */}
@@ -332,7 +348,9 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
           <>
             <EditableHeading k="scoring_rationale">Scoring Rationale</EditableHeading>
             <p style={{ color: "#5c6b82", fontSize: 13, marginTop: 0 }}>
-              Change a page score to recompute its pillar average, the overall score and the grades.
+              {kpiScored
+                ? "Page scores are the average of each page's KPI scores and are shown for reference. Change a KPI score in the KPI Assessment above to recompute its pillar, the overall score and the grades."
+                : "Change a page score to recompute its pillar average, the overall score and the grades."}
             </p>
             <PageScoresTables />
           </>
@@ -383,7 +401,7 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
               <th>Grade</th>
               <th>Label</th>
             </tr>
-            {SCORE_SCALE.map(([range, grade, label]) => (
+            {(kpiScored ? SCORE_SCALE_WHOLE : SCORE_SCALE).map(([range, grade, label]) => (
               <tr key={grade}>
                 <td>{range}</td>
                 <td>{grade}</td>
