@@ -184,8 +184,10 @@ export type BfsiAi = {
   top_improvements: string[];
   climate_risk: string;
   governance_summary: string;
-  /** Reports scored on KPI coverage only; older analyses lack it. */
+  /** Reports scored on KPIs only; older analyses lack it. */
   kpi_coverage?: KpiCoverage;
+  /** "kpi_score" when each KPI was scored 0–100 (grades on whole numbers); absent on older analyses. */
+  scoring_method?: string;
   key_metrics: {
     employees: string;
     women_pct: string;

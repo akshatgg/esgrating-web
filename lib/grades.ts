@@ -39,10 +39,11 @@ export function esgEvaluate(score: number): { grade: Grade; label: string } {
   return { grade, label: GRADE_LABELS[grade] };
 }
 
-/** Port of `bfsi_grade()` (esgratings-api/app/bfsi/scoring.py:20-33) — the same
- * gap-free ladder, without truncation (BFSI scores are already `php_round`ed). */
-export function bfsiGrade(score: number): { grade: Grade; label: string } {
-  const grade = ladder(score);
+/** Port of `bfsi_grade()` (esgratings-api/app/bfsi/scoring.py) — the same
+ * gap-free ladder. `whole` (KPI-scored reports) truncates first, as ESG does;
+ * older reports grade the `php_round`ed score as it is. */
+export function bfsiGrade(score: number, whole = false): { grade: Grade; label: string } {
+  const grade = ladder(whole ? Math.trunc(score) : score);
   return { grade, label: GRADE_LABELS[grade] };
 }
 

@@ -45,7 +45,12 @@ function CategoryTable({ cat, label, rows }: { cat: Cat; label: string; rows: Pa
         {label} — {rows.length} page{rows.length === 1 ? "" : "s"} scored
         {edited ? ` · ${edited} edited` : ""}
       </summary>
-      {!editable ? (
+      {!editable && ctx.kpisEditable?.[cat] ? (
+        <p className={s.lockNote}>
+          The {label} score comes from the KPI scores, so page scores are for reference only.
+          Change a KPI score in the KPI Assessment, or set the {label} pillar score directly.
+        </p>
+      ) : !editable ? (
         <p className={s.lockNote}>
           These page scores don&apos;t average to the stored {label} score (the analysis also
           scored pages it gave no reason for), so they can&apos;t be edited here. Set the {label}{" "}

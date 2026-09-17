@@ -16,7 +16,7 @@ import {
   Upload,
 } from "lucide-react";
 import clsx from "clsx";
-import type { BfsiOptions, BfsiSubmission } from "@/lib/types";
+import { KPI_SCORE_METHOD, type BfsiOptions, type BfsiSubmission } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { bfsiGrade } from "@/lib/grades";
 import { formatUtc, numberFormat, shortId } from "@/lib/format";
@@ -75,7 +75,8 @@ function esgSplit(row: BfsiSubmission): string {
 /** Prefer the score; fall back to the stored grade letter (hand-added or
  * imported rows can carry a grade but no score). */
 function category(row: BfsiSubmission): string {
-  if (typeof row.overall_score === "number") return bfsiGrade(row.overall_score).label;
+  if (typeof row.overall_score === "number")
+    return bfsiGrade(row.overall_score, row.ai_analysis?.scoring_method === KPI_SCORE_METHOD).label;
   if (row.grade) return GRADE_CATEGORY[row.grade] ?? "—";
   return "—";
 }

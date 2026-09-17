@@ -1,5 +1,5 @@
 import { forwardRef, Fragment } from "react";
-import type { BfsiCategory, BfsiDetail, BfsiOverall, BfsiSubmission } from "@/lib/types";
+import { KPI_SCORE_METHOD, type BfsiCategory, type BfsiDetail, type BfsiOverall, type BfsiSubmission } from "@/lib/types";
 import { bfsiGrade, fyFull, fyShortOf } from "@/lib/grades";
 import { asArray, capitalizeFirst, formatUtc, numberFormat, parseApiDate } from "@/lib/format";
 import Doughnut from "@/components/reports/Doughnut";
@@ -76,9 +76,10 @@ const BfsiOnePager = forwardRef<HTMLDivElement, BfsiOnePagerProps>(function Bfsi
   const e = sub.e_score ?? 0;
   const s = sub.s_score ?? 0;
   const g = sub.g_score ?? 0;
-  const eGrade = grades?.E ?? bfsiGrade(e);
-  const sGrade = grades?.S ?? bfsiGrade(s);
-  const gGrade = grades?.G ?? bfsiGrade(g);
+  const whole = ai.scoring_method === KPI_SCORE_METHOD;
+  const eGrade = grades?.E ?? bfsiGrade(e, whole);
+  const sGrade = grades?.S ?? bfsiGrade(s, whole);
+  const gGrade = grades?.G ?? bfsiGrade(g, whole);
 
   const fyThis = fyShortOf(created);
 
