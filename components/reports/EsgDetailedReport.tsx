@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import type { EsgFinal, Grade, KpiCoverageCategory } from "@/lib/types";
+import { KPI_SCORE_METHOD, type EsgFinal, type Grade, type KpiCoverageCategory } from "@/lib/types";
 import type { Pages } from "@/lib/reportEdits";
 import { GRADE_COLORS } from "@/lib/grades";
 import { formatScore, numberFormat } from "@/lib/format";
@@ -19,10 +19,18 @@ import extra from "@/components/reports/EsgDetailedReport.module.css";
 const LOGO = "/brand/logo.jpg";
 
 const PILLARS = [
-  { key: "environmental", cat: "E", label: "Environment", weight: 30, color: "#8BC34A" },
-  { key: "social", cat: "S", label: "Social", weight: 30, color: "#FF6B6B" },
-  { key: "governance", cat: "G", label: "Governance", weight: 40, color: "#FFEB3B" },
+  { key: "environmental", cat: "E", label: "Environment", color: "#8BC34A" },
+  { key: "social", cat: "S", label: "Social", color: "#FF6B6B" },
+  { key: "governance", cat: "G", label: "Governance", color: "#FFEB3B" },
 ] as const;
+
+/** The overall score's weights (esgratings-api app/esg/scoring.py): KPI-scored
+ * reports 35/30/35, older reports 30/30/40. */
+function weightsOf(final: EsgFinal): Record<(typeof PILLARS)[number]["key"], number> {
+  return final.scoring_method === KPI_SCORE_METHOD
+    ? { environmental: 35, social: 30, governance: 35 }
+    : { environmental: 30, social: 30, governance: 40 };
+}
 
 type RationaleLine = {
   page: number | string;
@@ -71,6 +79,8 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
   const coverage = final.kpi_coverage;
   const pageRows = final.page_scores ?? [];
   const grade = final.composite_score_performance;
+  const weights = weightsOf(final);
+  const kpiScored = final.scoring_method === KPI_SCORE_METHOD;
   const gradeColor = GRADE_COLORS[grade as Grade] ?? "#c0392b";
 
   // Scoring Rationale: the run's saved per-page reasons (pages) first, else the
@@ -173,8 +183,8 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
 
             <h3>Marks by Pillar</h3>
             <p className={styles["factor-note"]}>
-              Each pillar&apos;s weight is the marks available for it: Environment 30, Social 30,
-              Governance 40.
+              Each pillar&apos;s weight is the marks available for it: Environment {weights.environmental},
+              Social {weights.social}, Governance {weights.governance}.
             </p>
             <table className={styles.data}>
               <tbody>
@@ -194,9 +204,9 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
                         <b>{p.label}</b>
                       </td>
                       <td>{formatScore(score)}</td>
-                      <td>{p.weight}</td>
+                      <td>{weights[p.key]}</td>
                       <td>
-                        <b>{numberFormat((p.weight * score) / 100, 2)}</b>
+                        <b>{numberFormat((weights[p.key] * score) / 100, 2)}</b>
                       </td>
                       <td>
                         {final[`${p.key}_score_performance`]} — {final[`${p.key}_score_performance_label`]}
@@ -238,8 +248,9 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
 
             <h3>Strengths and Gaps</h3>
             <p className={styles["factor-note"]}>
-              Strengths are the KPIs the report proves strongly; gaps are the KPIs it does not
-              address, and the first places to improve disclosure.
+              Strengths are the KPIs the report proves strongly
+              {kpiScored ? " (scored 61–100; partly proven = 1–60)" : ""}; gaps are the KPIs it does
+              not address, and the first places to improve disclosure.
             </p>
             <table className={styles.data}>
               <tbody>
@@ -291,10 +302,23 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
 
             <h3>Methodology</h3>
             <p className={styles["factor-note"]}>
-              Every page of the uploaded report is checked against each pillar&apos;s KPI list. A KPI
-              scores 100 when the report proves it strongly, 50 when only partly, and 0 when it is not
-              found; it keeps its best result from any page. Each pillar score is the average of its
-              KPIs, and the overall score weights Environment 30%, Social 30% and Governance 40%.
+              {kpiScored ? (
+                <>
+                  Every page of the uploaded report is checked against each pillar&apos;s KPI list,
+                  and each KPI found is scored from 0 to 100. A KPI keeps its best score from any
+                  page and scores 0 when it is not found. Each pillar score is the total of its KPI
+                  scores as a percentage of the maximum. Page scores are shown for reference only.
+                </>
+              ) : (
+                <>
+                  Every page of the uploaded report is checked against each pillar&apos;s KPI list. A
+                  KPI scores 100 when the report proves it strongly, 50 when only partly, and 0 when
+                  it is not found; it keeps its best result from any page. Each pillar score is the
+                  average of its KPIs.
+                </>
+              )}{" "}
+              The overall score weights Environment {weights.environmental}%, Social {weights.social}%
+              and Governance {weights.governance}%.
             </p>
           </>
         )}

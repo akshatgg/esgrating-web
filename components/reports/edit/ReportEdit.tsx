@@ -20,7 +20,7 @@ import {
   type ReactNode,
   type TextareaHTMLAttributes,
 } from "react";
-import type { Cat, Pages, PagesEditable, ReportEdits } from "@/lib/reportEdits";
+import type { Cat, Kpis, KpisEditable, Pages, PagesEditable, ReportEdits } from "@/lib/reportEdits";
 import s from "@/components/reports/edit/Editable.module.css";
 
 export type ReportEditApi = {
@@ -36,6 +36,11 @@ export type ReportEditApi = {
   pages: Pages;
   /** Per category: page scores editable (missing = editable). */
   pagesEditable?: PagesEditable;
+  /** KPI score overrides, 0–100 (the draft while editing, else the saved ones). */
+  kpiScores: NonNullable<ReportEdits["kpi_scores"]>;
+  kpis: Kpis;
+  /** Per category: KPI scores editable (missing = not editable). */
+  kpisEditable?: KpisEditable;
   /** Custom logo src, or null for the default. */
   logoSrc: string | null;
   logoBusy?: boolean;
@@ -44,6 +49,7 @@ export type ReportEditApi = {
   setField?: (key: string, value: unknown) => void;
   setPillar?: (cat: Cat, value: number | null) => void;
   setPageScore?: (cat: Cat, page: number, value: number | null) => void;
+  setKpiScore?: (cat: Cat, kpi: string, value: number | null) => void;
   setReason?: (cat: Cat, page: number, text: string) => void;
   uploadLogo?: (file: File) => void;
   useDefaultLogo?: () => void;

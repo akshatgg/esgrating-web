@@ -33,14 +33,27 @@ export type YearScore =
     }
   | { status: false; message: string };
 
-/** A KPI's best result in a report, from the KPI-coverage scoring
- * (esgratings-api app/core/kpis.py): strong = 100, partial = 50, none = 0. */
+/** A KPI's best result in a report. ESG KPI scoring (esgratings-api
+ * app/esg/scoring.py): strong = 61–100, partial = 1–60, none = 0. Older reports
+ * and BFSI: strong = 100 points, partial = 50, none = 0. */
 export type KpiLevel = "strong" | "partial" | "none";
 
+/** `method` value of a category scored KPI by KPI, 0–100 (app/esg/scoring.py METHOD). */
+export const KPI_SCORE_METHOD = "kpi_score";
+
 export type KpiCoverageCategory = {
-  /** The pillar score: the average of the KPIs' points. */
+  /** The pillar score: the KPIs' best scores as a percentage of the maximum. */
   score: number;
-  kpis: Array<{ kpi: string; level: KpiLevel; points: number; pages: Array<number | string> }>;
+  /** "kpi_score" when each KPI was scored 0–100; absent on strong/partial results. */
+  method?: string;
+  kpis: Array<{
+    kpi: string;
+    level: KpiLevel;
+    /** The KPI's best score, 0–100 (equals `score` on KPI-scored results). */
+    points: number;
+    score?: number;
+    pages: Array<number | string>;
+  }>;
 };
 
 export type KpiCoverage = Partial<Record<"Environment" | "Social" | "Governance", KpiCoverageCategory>>;
@@ -52,7 +65,7 @@ export type PageScoreRow = { page: number | string } & Partial<
     {
       score: number | string | null;
       kpis: number;
-      /** The KPIs this page proves ("… (partial)" when only partly). */
+      /** The KPIs on this page: "… (80)" with their scores, or "… (partial)" on older reports. */
       kpi_names?: string[];
       /** The AI's reason for the page score. */
       reason?: string;
@@ -80,8 +93,10 @@ export type EsgFinal = {
   social_score_performance_label: string;
   governance_score_performance_label: string;
   composite_score_performance_label: string;
-  /** Reports scored on KPI coverage only; older and imported reports lack it. */
+  /** Reports scored on KPIs only; older and imported reports lack it. */
   kpi_coverage?: KpiCoverage;
+  /** "kpi_score" on reports scored KPI by KPI (weights 35/30/35); absent on older ones (30/30/40). */
+  scoring_method?: string;
   page_scores?: PageScoreRow[];
 };
 
