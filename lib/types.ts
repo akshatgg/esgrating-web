@@ -56,6 +56,9 @@ export type KpiCoverageCategory = {
     points: number;
     score?: number;
     pages: Array<number | string>;
+    /** Set when a page showed poor performance for this KPI, so its score is held down
+     * to 20 however good another page looked. */
+    capped?: boolean;
   }>;
 };
 

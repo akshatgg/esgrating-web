@@ -93,10 +93,13 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
       <p className={styles.note}>
         {anyScored ? (
           <>
-            Each KPI is scored from 0 to 100 on what the uploaded report shows: 1–30 mentioned only,
-            31–60 a policy or commitment, 61–80 specific actions, 81–100 measured data or targets with
-            progress. A KPI keeps its best score from any page and scores 0 when it is not found. Each
-            pillar score is the total of its KPI scores as a percentage of the maximum.
+            Each KPI is scored from 0 to 100 on how good the performance is, not on how much detail
+            the report gives: 0 when it is only mentioned, promised or too vague to judge, 1–20 poor
+            (fines, incidents, a worsening trend), 21–40 weak, 41–60 real action without results,
+            61–80 measured results, 81–100 targets met or independently assured. A KPI keeps its best
+            score from any page — held down to 20 if any page showed poor performance — and scores 0
+            when it is not found. Each pillar score is the average of all its KPI scores, with
+            missing KPIs counted as 0.
           </>
         ) : (
           <>
@@ -156,14 +159,17 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
                           points(best(k))
                         )}
                       </td>
-                      <td className={styles.pages}>{pagesText(k.pages)}</td>
+                      <td className={styles.pages}>
+                        {pagesText(k.pages)}
+                        {k.capped ? " · capped at 20 (poor performance found)" : null}
+                      </td>
                     </tr>
                   );
                 })}
                 <tr className={styles.total}>
                   <td colSpan={2}>
                     {isScored
-                      ? `${cat} score (total of ${data.kpis.length} KPI scores ÷ ${data.kpis.length * 100} × 100)`
+                      ? `${cat} score (average of all ${data.kpis.length} KPI scores, missing counted as 0)`
                       : `${cat} score (average of ${data.kpis.length} KPIs)`}
                   </td>
                   <td className={styles.num}>
