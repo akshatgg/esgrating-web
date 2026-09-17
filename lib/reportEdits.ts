@@ -31,11 +31,24 @@ export type PageRow = {
 };
 export type Pages = Partial<Record<Cat, PageRow[]>>;
 
+/** One KPI of a category's KPI Assessment (`kpis[cat][]`), scored 0–100. */
+export type KpiRow = {
+  kpi: string;
+  score: number;
+  original_score: number;
+  pages: Array<number | string>;
+};
+export type Kpis = Partial<Record<Cat, KpiRow[]>>;
+/** Per category: whether its KPI scores can be edited (ESG reports with a KPI Assessment). */
+export type KpisEditable = Partial<Record<Cat, boolean>>;
+
 /** `report_edits` (the body of preview/PUT, `logo` aside). */
 export type ReportEdits = {
   headings?: Record<string, string>;
   fields?: Record<string, unknown>;
   page_scores?: Partial<Record<Cat, Record<string, number>>>;
+  /** KPI name -> score 0–100. */
+  kpi_scores?: Partial<Record<Cat, Record<string, number>>>;
   pillar_overrides?: Partial<Record<Cat, number | null>>;
   logo?: string | null;
   updated_at?: string;
@@ -79,6 +92,8 @@ export type ReportState<E extends Effective = Effective> = {
   edits: ReportEdits | null;
   pages: Pages;
   pages_editable?: PagesEditable;
+  kpis?: Kpis;
+  kpis_editable?: KpisEditable;
   edited: boolean;
   heading_keys?: string[];
   field_keys?: string[];
@@ -88,6 +103,8 @@ export type PreviewResult<E extends Effective = Effective> = {
   effective: E;
   pages: Pages;
   pages_editable?: PagesEditable;
+  kpis?: Kpis;
+  kpis_editable?: KpisEditable;
 };
 
 /** The server's cap on list fields (`LIST_MAX` in app/reports/editing.py). */
@@ -164,6 +181,7 @@ function stripMeta(edits: ReportEdits): ReportEdits {
     headings: edits.headings ?? {},
     fields: edits.fields ?? {},
     page_scores: edits.page_scores ?? {},
+    kpi_scores: edits.kpi_scores ?? {},
     pillar_overrides: edits.pillar_overrides ?? {},
   };
 }

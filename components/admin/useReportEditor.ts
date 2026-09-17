@@ -299,6 +299,9 @@ export function useReportEditor<E extends Effective>(
         pillarManual: report.effective.pillar_manual ?? {},
         pages: report.pages ?? {},
         pagesEditable: report.pages_editable ?? {},
+        kpiScores: savedEdits?.kpi_scores ?? {},
+        kpis: report.kpis ?? {},
+        kpisEditable: report.kpis_editable ?? {},
         logoSrc: logoSrcOf(report.effective, logoBust),
       }
     : null;
@@ -314,6 +317,9 @@ export function useReportEditor<E extends Effective>(
           pillarManual: liveEffective?.pillar_manual ?? {},
           pages: preview?.pages ?? report.pages ?? {},
           pagesEditable: preview?.pages_editable ?? report.pages_editable ?? {},
+          kpiScores: draft.kpi_scores ?? {},
+          kpis: preview?.kpis ?? report.kpis ?? {},
+          kpisEditable: preview?.kpis_editable ?? report.kpis_editable ?? {},
           logoSrc: logoSrcOf(liveEffective, logoBust),
           logoBusy,
           logoError,
@@ -348,6 +354,13 @@ export function useReportEditor<E extends Effective>(
               if (v === null) delete catMap[String(page)];
               else catMap[String(page)] = v;
               d.page_scores = { ...d.page_scores, [cat]: catMap };
+            }),
+          setKpiScore: (cat: Cat, kpi, v) =>
+            update((d) => {
+              const catMap = { ...(d.kpi_scores?.[cat] ?? {}) };
+              if (v === null) delete catMap[kpi];
+              else catMap[kpi] = v;
+              d.kpi_scores = { ...d.kpi_scores, [cat]: catMap };
             }),
           setReason: (cat: Cat, page, text) =>
             update((d) => {
