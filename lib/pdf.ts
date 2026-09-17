@@ -3,9 +3,19 @@
 // is imported dynamically inside each function — it must never end up in a
 // server bundle.
 
-/** Exact html2pdf options from esg-report.php (esg.md §B4). */
+/** html2canvas clones the page before drawing; open every <details> in that clone
+ * so collapsed sections (the detailed reports' Scoring Rationale) print their
+ * content. The page itself keeps them as they were. */
+function openDetails(doc: Document): void {
+  doc.querySelectorAll("details").forEach((d) => {
+    d.open = true;
+  });
+}
+
+/** Exact html2pdf options from esg-report.php (esg.md §B4), plus `onclone`
+ * (openDetails above). */
 export const ESG_PDF_OPTS = {
-  html2canvas: { scale: 2, useCORS: false },
+  html2canvas: { scale: 2, useCORS: false, onclone: openDetails },
   jsPDF: { unit: "px", format: [750, 1400], orientation: "portrait" },
   pagebreak: { mode: ["avoid-all", "css", "legacy"] },
 } as const;

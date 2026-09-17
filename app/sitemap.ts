@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { POSTS } from "@/content/blog";
+import { getPublishedPosts } from "@/lib/server-blog-api";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://esgratings.co.in";
 
@@ -16,15 +16,16 @@ const STATIC_ROUTES = [
   "/bfsi-calculator",
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({
     url: `${SITE_URL}${path}`,
     lastModified: new Date(),
   }));
 
-  const postEntries: MetadataRoute.Sitemap = POSTS.map((post) => ({
+  const posts = await getPublishedPosts();
+  const postEntries: MetadataRoute.Sitemap = posts.map((post) => ({
     url: `${SITE_URL}/blogs/${post.slug}`,
-    lastModified: new Date(post.date),
+    lastModified: new Date(post.updated_at ?? post.published_at ?? post.created_at),
   }));
 
   return [...staticEntries, ...postEntries];

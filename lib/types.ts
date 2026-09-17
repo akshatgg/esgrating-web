@@ -33,6 +33,33 @@ export type YearScore =
     }
   | { status: false; message: string };
 
+/** A KPI's best result in a report, from the KPI-coverage scoring
+ * (esgratings-api app/core/kpis.py): strong = 100, partial = 50, none = 0. */
+export type KpiLevel = "strong" | "partial" | "none";
+
+export type KpiCoverageCategory = {
+  /** The pillar score: the average of the KPIs' points. */
+  score: number;
+  kpis: Array<{ kpi: string; level: KpiLevel; points: number; pages: Array<number | string> }>;
+};
+
+export type KpiCoverage = Partial<Record<"Environment" | "Social" | "Governance", KpiCoverageCategory>>;
+
+/** One page of an ESG report: each pillar's page score and how many KPIs it proved. */
+export type PageScoreRow = { page: number | string } & Partial<
+  Record<
+    "Environment" | "Social" | "Governance",
+    {
+      score: number | string | null;
+      kpis: number;
+      /** The KPIs this page proves ("… (partial)" when only partly). */
+      kpi_names?: string[];
+      /** The AI's reason for the page score. */
+      reason?: string;
+    }
+  >
+>;
+
 /** `final_report_data` / `llm_response` shape (esg.md §A6). */
 export type EsgFinal = {
   environmental_score: number;
@@ -53,6 +80,9 @@ export type EsgFinal = {
   social_score_performance_label: string;
   governance_score_performance_label: string;
   composite_score_performance_label: string;
+  /** Reports scored on KPI coverage only; older and imported reports lack it. */
+  kpi_coverage?: KpiCoverage;
+  page_scores?: PageScoreRow[];
 };
 
 export type AnalysisStatus = "idle" | "running" | "done" | "failed";
@@ -66,8 +96,9 @@ export type EsgSubmission = {
   company_name: string;
   mobile_number: string;
   report_year: string;
-  file_path: string;
-  file_sha256: string;
+  /** null for reports imported from the old calculator (no stored upload). */
+  file_path: string | null;
+  file_sha256: string | null;
   submit_ip: string;
   status: "new" | "report_generated" | "sent";
   created_at: string;
@@ -138,6 +169,8 @@ export type BfsiAi = {
   top_improvements: string[];
   climate_risk: string;
   governance_summary: string;
+  /** Reports scored on KPI coverage only; older analyses lack it. */
+  kpi_coverage?: KpiCoverage;
   key_metrics: {
     employees: string;
     women_pct: string;

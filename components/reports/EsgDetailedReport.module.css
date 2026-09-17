@@ -1,0 +1,16 @@
+/* Sections of the ESG Detailed Report not covered by BfsiDetailedReport.module.css
+   (which supplies the card, tables and the Scoring Rationale's details blocks). */
+
+.empty {
+  padding: 16px;
+  border: 1px solid #e3e8f2;
+  border-radius: 8px;
+  background: #f7f9fc;
+  color: #5c6b82;
+}
+
+/* The KPIs a page proves, after its reason in the Scoring Rationale. */
+.kpis {
+  color: #1e7a4c;
+  font-weight: 600;
+}

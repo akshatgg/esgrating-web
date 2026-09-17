@@ -14,7 +14,7 @@ import { apiUpload, ApiError } from "@/lib/api";
 const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const MOBILE_RE = /^(\+91[\-\s]?)?[0]?(91)?[789]\d{9}$/;
 
-const MAX_FILE_MB = 5;
+const MAX_FILE_MB = 10; // matches the API's MAX_FILE_BYTES (app/esg/submissions.py)
 const ACCEPT = ".pdf,.doc,.docx";
 
 const SUCCESS_MESSAGE = "Your ESG Rating will be sent to your registered email. Thank you!";

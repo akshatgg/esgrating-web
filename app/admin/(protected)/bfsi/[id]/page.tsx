@@ -7,13 +7,14 @@ import {
   Clock,
   Download,
   Factory,
+  FileSpreadsheet,
   Hash,
   IndianRupee,
   Layers,
+  Loader2,
   Mail,
   PencilLine,
   RefreshCw,
-  ScrollText,
   Tag,
   Target,
   User,
@@ -21,14 +22,15 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import type { BfsiDetail } from "@/lib/types";
-import { apiFetch, ApiError } from "@/lib/api";
-import { formatUtc, numberFormat } from "@/lib/format";
+import { apiFetch, apiFetchBlob, ApiError } from "@/lib/api";
+import { formatUtc, numberFormat, slugify } from "@/lib/format";
 import { BFSI_PDF_OPTS, downloadPdf, pdfBlob } from "@/lib/pdf";
 import { bfsiView, type BfsiEffective } from "@/lib/reportEdits";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import AnalyzePanel from "@/components/admin/AnalyzePanel";
+import CacheToggle from "@/components/admin/CacheToggle";
 import SendReportButton from "@/components/admin/SendReportButton";
 import PageHeader from "@/components/admin/PageHeader";
 import DetailRail from "@/components/admin/DetailRail";
@@ -52,6 +54,12 @@ const LIST_CRUMBS = [
   { label: "BFSI Submissions", href: "/admin/bfsi" },
 ];
 
+/** The one-page rating report and the detailed report, side by side as tabs (as on ESG). */
+const REPORT_TABS = [
+  ["onepager", "One-Page Rating Report"],
+  ["detailed", "Detailed Report"],
+] as const;
+
 /** Pure network call — only the effect's `.then/.catch` sets state. */
 function fetchDetail(id: string): Promise<BfsiDetail> {
   return apiFetch<BfsiDetail>(`/api/admin/bfsi/submissions/${id}`);
@@ -66,8 +74,13 @@ export default function BfsiSubmissionDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [confirmRerun, setConfirmRerun] = useState(false);
+  // Off by default: every run scores the report fresh unless the admin ticks the box.
+  const [useCache, setUseCache] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const [tab, setTab] = useState<(typeof REPORT_TABS)[number][0]>("onepager");
+  const onePagerRef = useRef<HTMLDivElement>(null);
   // Off-screen copies used only for "Send report" (detailed + one-pager).
   const pdfDetailedRef = useRef<HTMLDivElement>(null);
   const pdfOnePagerRef = useRef<HTMLDivElement>(null);
@@ -123,7 +136,10 @@ export default function BfsiSubmissionDetailPage() {
         : d,
     );
     try {
-      await apiFetch(`/api/admin/bfsi/submissions/${id}/analyze`, { method: "POST" });
+      await apiFetch(
+        `/api/admin/bfsi/submissions/${id}/analyze?use_cache=${useCache}`,
+        { method: "POST" },
+      );
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Something went wrong.");
     } finally {
@@ -138,11 +154,18 @@ export default function BfsiSubmissionDetailPage() {
   }
 
   async function handleDownload() {
-    if (!reportRef.current) return;
+    // Downloads whichever report the tabs show; the names match Send report's attachments.
+    const onePager = tab === "onepager" && !editor.editing;
+    const el = onePager ? onePagerRef.current : reportRef.current;
+    if (!el) return;
     setDownloading(true);
     setActionError(null);
     try {
-      await downloadPdf(reportRef.current, `bfsi-detailed-report-${id}.pdf`, BFSI_PDF_OPTS);
+      await downloadPdf(
+        el,
+        onePager ? `esg-rating-report-${id}.pdf` : `bfsi-detailed-report-${id}.pdf`,
+        BFSI_PDF_OPTS,
+      );
     } catch {
       setActionError("Couldn't generate the PDF. Please try again.");
     } finally {
@@ -157,6 +180,28 @@ export default function BfsiSubmissionDetailPage() {
     // Order matters: the API names them bfsi-detailed-report-<id>.pdf, then
     // esg-rating-report-<id>.pdf (router_admin.py SEND_FILE_NAMES).
     return [await pdfBlob(detailed, BFSI_PDF_OPTS), await pdfBlob(onePager, BFSI_PDF_OPTS)];
+  }
+
+  /** Same page-scores sheet as the ESG report: one row per page and category. */
+  async function handleExportCsv() {
+    const name = detail?.submission.borrower_name || "report";
+    setExportingCsv(true);
+    setActionError(null);
+    try {
+      const blob = await apiFetchBlob(`/api/admin/bfsi/submissions/${id}/export_csv`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `bfsi-page-scores-${slugify(name)}-${id.slice(0, 6)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Something went wrong.");
+    } finally {
+      setExportingCsv(false);
+    }
   }
 
   if (!detail && !loadError) {
@@ -181,6 +226,8 @@ export default function BfsiSubmissionDetailPage() {
   const running = sub.analysis_status === "running";
   const showReport = !running && !!ai && !!overall;
   const editing = editor.editing;
+  // This page edits the detailed report, so the one-page tab steps aside meanwhile.
+  const onePagerView = tab === "onepager" && !editing;
 
   // What the sheets render: the effective (edited / previewed) report when
   // there is one, else the stored detail exactly as before.
@@ -289,19 +336,34 @@ export default function BfsiSubmissionDetailPage() {
                       title={reportGate ?? undefined}
                     >
                       <Download className="h-4 w-4" aria-hidden="true" />
-                      {downloading ? "Preparing…" : "Download Detailed Report (PDF)"}
-                    </Button>
-                    <Button variant="adminSecondary" href={`/admin/bfsi/${id}/one-pager`}>
-                      <ScrollText className="h-4 w-4" aria-hidden="true" />
-                      One-Page Rating Report
+                      {downloading
+                        ? "Preparing…"
+                        : onePagerView
+                          ? "Download One-Page Report (PDF)"
+                          : "Download Detailed Report (PDF)"}
                     </Button>
                     <SendReportButton
                       getPdfs={getPdfs}
                       endpoint={`/api/admin/bfsi/submissions/${id}/send`}
+                      templateEndpoint="/api/admin/bfsi/mail-template"
                       email={sub.contact_email}
                       fieldName="pdfs"
+                      attachments={["One-Page Rating Report", "Detailed Report"]}
                       unavailableReason={reportGate}
                     />
+                    <Button
+                      variant="adminSecondary"
+                      onClick={handleExportCsv}
+                      disabled={exportingCsv}
+                      aria-label="Download page scores as CSV"
+                    >
+                      {exportingCsv ? (
+                        <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
+                      ) : (
+                        <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
+                      )}
+                      {exportingCsv ? "Preparing…" : "Download page scores (CSV)"}
+                    </Button>
                     {editor.unavailable ? null : (
                       <Button
                         variant="adminSecondary"
@@ -313,36 +375,76 @@ export default function BfsiSubmissionDetailPage() {
                       </Button>
                     )}
                   </div>
-                  <Button variant="adminGhost" onClick={requestAnalyze}>
-                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                    Re-run analysis
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <CacheToggle checked={useCache} onChange={setUseCache} />
+                    <Button variant="adminGhost" onClick={requestAnalyze}>
+                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                      Re-run analysis
+                    </Button>
+                  </div>
                 </div>
               )}
+
+              {!editing ? (
+                <div
+                  role="tablist"
+                  aria-label="Report view"
+                  className="flex self-start gap-1 rounded-xl border border-line bg-white p-1"
+                >
+                  {REPORT_TABS.map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      aria-selected={tab === key}
+                      onClick={() => setTab(key)}
+                      className={clsx(
+                        "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+                        tab === key ? "bg-navy text-white" : "text-muted hover:text-ink",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
 
               <ReportPreview
                 caption={
                   editing
                     ? "Edits preview live. Save to use them in the PDFs and the email."
-                    : "Send report attaches this and the one-page report."
+                    : onePagerView
+                      ? "The one-page rating report. Send report attaches this and the detailed report."
+                      : "Send report attaches this and the one-page report."
                 }
               >
                 {/* The same 750px sheet width as the off-screen copies below. */}
                 <div
                   role="region"
-                  aria-label="Detailed report"
+                  aria-label={onePagerView ? "One-page rating report" : "Detailed report"}
                   tabIndex={0}
                   className={clsx("overflow-x-auto", FOCUS_RING)}
                 >
                   <div className="mx-auto w-[750px] pt-5">
                     <ReportEditProvider value={editing ? editor.editCtx : editor.savedCtx}>
-                      <BfsiDetailedReport
-                        ref={reportRef}
-                        submission={live.submission}
-                        overall={live.overall}
-                        recommendation={live.recommendation}
-                        grades={live.grades}
-                      />
+                      {onePagerView ? (
+                        <BfsiOnePager
+                          ref={onePagerRef}
+                          submission={live.submission}
+                          overall={live.overall}
+                          previous={previous}
+                          industryLabel={industry_label}
+                          grades={live.grades}
+                        />
+                      ) : (
+                        <BfsiDetailedReport
+                          ref={reportRef}
+                          submission={live.submission}
+                          overall={live.overall}
+                          recommendation={live.recommendation}
+                          grades={live.grades}
+                        />
+                      )}
                     </ReportEditProvider>
                   </div>
                 </div>
