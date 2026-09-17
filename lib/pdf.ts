@@ -27,12 +27,110 @@ export const ESG_PDF_OPTS = {
  * 750px-wide page. */
 export const BFSI_PDF_OPTS = ESG_PDF_OPTS;
 
+// --- Tall sheets ------------------------------------------------------------
+//
+// html2pdf draws the whole sheet into ONE canvas, and a canvas has limits: about
+// 16.7M pixels of area and 8,192 px on a side in Safari (much lower on iOS).
+// Past them the browser hands back a blank canvas with no error, so every page
+// of the PDF comes out empty while the same report looks right on screen and
+// prints fine in Chrome. A detailed report is easily 6,000+ CSS px tall, which
+// is 12,000 px and 18M pixels at scale 2 — over the line.
+//
+// So a sheet that would bust the budget is captured in bands of a few pages at
+// a time and the PDF is assembled from those. Each band stays far inside every
+// browser's limit, and the sheet keeps the same scale, width and page size as
+// the single-canvas path.
+
+const MAX_CANVAS_AREA = 16_000_000;
+const MAX_CANVAS_SIDE = 8_192;
+const PAGES_PER_BAND = 2;
+const DEFAULT_PAGE: [number, number] = [750, 1400];
+
+type PdfOpts = Record<string, unknown>;
+
+function html2canvasOpts(opts: PdfOpts): Record<string, unknown> {
+  const value = opts.html2canvas;
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+function pageSize(opts: PdfOpts): [number, number] {
+  const jspdf = opts.jsPDF as { format?: unknown } | undefined;
+  const format = jspdf?.format;
+  return Array.isArray(format) && format.length === 2 && format.every((n) => typeof n === "number")
+    ? [format[0] as number, format[1] as number]
+    : DEFAULT_PAGE;
+}
+
+function sheetSize(el: HTMLElement): { width: number; height: number } {
+  return {
+    width: el.scrollWidth || el.offsetWidth || DEFAULT_PAGE[0],
+    height: el.scrollHeight || el.offsetHeight || 0,
+  };
+}
+
+/** True when one canvas of the whole sheet would exceed what browsers draw. */
+function tooTallForOneCanvas(el: HTMLElement, opts: PdfOpts): boolean {
+  const { width, height } = sheetSize(el);
+  const scale = Number(html2canvasOpts(opts).scale ?? 2) || 1;
+  return height * scale > MAX_CANVAS_SIDE || width * scale * height * scale > MAX_CANVAS_AREA;
+}
+
+/** The sheet as a jsPDF document, captured band by band (see above). */
+async function bandedDoc(el: HTMLElement, opts: PdfOpts) {
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas"),
+    import("jspdf"),
+  ]);
+  const h2c = html2canvasOpts(opts);
+  const scale = Number(h2c.scale ?? 2) || 1;
+  const [pageWidth, pageHeight] = pageSize(opts);
+  const { width, height } = sheetSize(el);
+  const pages = Math.max(1, Math.ceil(height / pageHeight));
+
+  const doc = new jsPDF({ unit: "px", format: [pageWidth, pageHeight], orientation: "portrait" });
+  const page = document.createElement("canvas");
+  page.width = Math.round(pageWidth * scale);
+  page.height = Math.round(pageHeight * scale);
+  const ctx = page.getContext("2d");
+  if (!ctx) throw new Error("canvas unavailable");
+
+  for (let first = 0; first < pages; first += PAGES_PER_BAND) {
+    const top = first * pageHeight;
+    const band = await html2canvas(el, {
+      x: 0,
+      y: top,
+      width,
+      height: Math.min(PAGES_PER_BAND * pageHeight, height - top),
+      scale,
+      backgroundColor: "#ffffff",
+      useCORS: Boolean(h2c.useCORS),
+      onclone: h2c.onclone as ((doc: Document) => void) | undefined,
+    });
+    const fit = page.width / band.width; // the sheet is scaled to the page width
+    for (let i = 0; first + i < pages && i < PAGES_PER_BAND; i++) {
+      const sourceTop = Math.round(i * pageHeight * scale);
+      const sourceHeight = Math.min(page.height, band.height - sourceTop);
+      if (sourceHeight <= 0) break;
+      if (first + i > 0) doc.addPage([pageWidth, pageHeight], "portrait");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, page.width, page.height);
+      ctx.drawImage(band, 0, sourceTop, band.width, sourceHeight,
+                    0, 0, page.width, sourceHeight * fit);
+      doc.addImage(page.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, pageWidth, pageHeight);
+    }
+  }
+  return doc;
+}
+
 /** Renders `el` to a PDF `Blob` — for attaching to the "send report" upload,
  * without triggering a browser download. */
 export async function pdfBlob(
   el: HTMLElement,
-  opts: Record<string, unknown> = ESG_PDF_OPTS,
+  opts: PdfOpts = ESG_PDF_OPTS,
 ): Promise<Blob> {
+  if (tooTallForOneCanvas(el, opts)) {
+    return (await bandedDoc(el, opts)).output("blob");
+  }
   const html2pdf = (await import("html2pdf.js")).default;
   return html2pdf().set(opts).from(el).outputPdf("blob");
 }
@@ -41,8 +139,12 @@ export async function pdfBlob(
 export async function downloadPdf(
   el: HTMLElement,
   filename: string,
-  opts: Record<string, unknown> = ESG_PDF_OPTS,
+  opts: PdfOpts = ESG_PDF_OPTS,
 ): Promise<void> {
+  if (tooTallForOneCanvas(el, opts)) {
+    (await bandedDoc(el, opts)).save(filename);
+    return;
+  }
   const html2pdf = (await import("html2pdf.js")).default;
   await html2pdf()
     .set({ ...opts, filename })
