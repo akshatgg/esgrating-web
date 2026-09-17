@@ -166,8 +166,14 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
                       ? `${cat} score (total of ${data.kpis.length} KPI scores ÷ ${data.kpis.length * 100} × 100)`
                       : `${cat} score (average of ${data.kpis.length} KPIs)`}
                   </td>
-                  <td className={styles.num}>{points(data.score)}</td>
-                  <td />
+                  <td className={styles.num}>
+                    {typeof data.analyst_score === "number" ? points(data.analyst_score) : points(data.score)}
+                  </td>
+                  <td className={styles.pages}>
+                    {typeof data.analyst_score === "number"
+                      ? `Set by analyst (KPI total ${points(data.score)})`
+                      : null}
+                  </td>
                 </tr>
               </tbody>
             </table>
