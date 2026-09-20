@@ -15,6 +15,11 @@ const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 // Any country: optional +, then 7-15 digits (E.164 maximum); separators ignored.
 const MOBILE_RE = /^\+?\d{7,15}$/;
 const PHONE_SEPARATORS_RE = /[\s\-().]/g;
+// A financial year ("2024-2025") or a single reporting year ("2025"), for companies
+// whose reporting period is one calendar year. Matches REPORT_YEAR_RE in the API
+// (esgratings-api/app/esg/submissions.py), checked here so the error shows before
+// the report is uploaded.
+const REPORT_YEAR_RE = /^\d{4}(?:-\d{4})?$/;
 
 const MAX_FILE_MB = 20; // matches the API's MAX_FILE_BYTES (app/esg/submissions.py)
 const ACCEPT = ".pdf,.doc,.docx";
@@ -51,6 +56,8 @@ function validate(form: FormState, file: File | null): string | null {
   if (!MOBILE_RE.test(form.mobile_number.trim().replace(PHONE_SEPARATORS_RE, "")))
     return "Please enter a valid phone number";
   if (!form.report_year.trim()) return "Please enter the report financial year.";
+  if (!REPORT_YEAR_RE.test(form.report_year.trim()))
+    return "Report financial year must look like 2024-2025 or 2025";
 
   if (!file) return "Please upload your BRSR / Sustainability / Integrated Report.";
   const ext = file.name.split(".").pop()?.toLowerCase();
@@ -163,7 +170,8 @@ export default function EsgCalculatorForm() {
         <Field
           label="Report Financial Year"
           name="report_year"
-          placeholder="2024-2025"
+          placeholder="2024-2025 or 2025"
+          hint="Enter a financial year (2024-2025) or a single year (2025)."
           required
           value={form.report_year}
           onChange={update("report_year")}

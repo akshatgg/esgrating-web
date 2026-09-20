@@ -20,7 +20,7 @@ import clsx from "clsx";
 import type { EsgListItem } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
 import { formatDmyFull } from "@/lib/format";
-import { downloadPdf, ESG_PDF_OPTS } from "@/lib/pdf";
+import { downloadPdf, ONE_PAGER_PDF_OPTS } from "@/lib/pdf";
 import { RATED_COMPANIES_HREF } from "@/lib/admin-nav";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
@@ -88,7 +88,7 @@ export default function RatedCompanyPage() {
     setDownloading(true);
     setActionError(null);
     try {
-      await downloadPdf(reportRef.current, ratingPdfFilename(item), ESG_PDF_OPTS);
+      await downloadPdf(reportRef.current, ratingPdfFilename(item), ONE_PAGER_PDF_OPTS);
     } catch {
       setActionError("Couldn't generate the PDF. Please try again.");
     } finally {

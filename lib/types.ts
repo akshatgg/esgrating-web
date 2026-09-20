@@ -59,6 +59,16 @@ export type KpiCoverageCategory = {
     /** Set when a page showed poor performance for this KPI, so its score is held down
      * to 20 however good another page looked. */
     capped?: boolean;
+    /** Why this KPI scored what it scored, written by the call that scored it
+     * (esgratings-api app/esg/scoring.py `_evidence`): the page the score came from,
+     * plus the other pages that scored it. Absent on reports analysed before it was
+     * kept, and on KPIs the report never addressed. */
+    evidence?: {
+      page?: number | string;
+      score?: number;
+      reason?: string;
+      also?: Array<{ page?: number | string; score?: number; reason?: string }>;
+    };
   }>;
 };
 

@@ -20,12 +20,69 @@ export const ESG_PDF_OPTS = {
   pagebreak: { mode: ["avoid-all", "css", "legacy"] },
 } as const;
 
+/** The one-pagers (ESG Rating Report, ESG Rating List, BFSI one-pager): the whole
+ * sheet on ONE page, however tall it is -- see "One page" below. */
+export const ONE_PAGER_PDF_OPTS = { ...ESG_PDF_OPTS, fitPage: true } as const;
+
 /** BFSI detailed report + one-pager. report.php:282 and one_pager.php:677 call
  * `html2pdf().from(el).save(name)` with no options at all (html2pdf's own
  * defaults: US letter, inches, no margin); per the W7 decision the BFSI PDFs
  * reuse the ESG options above instead — both sheets lay out inside its
  * 750px-wide page. */
 export const BFSI_PDF_OPTS = ESG_PDF_OPTS;
+
+// --- One page ---------------------------------------------------------------
+//
+// A one-pager is one page only while its content is short enough. The page was a
+// fixed 750x1400 px, and html2pdf slices the canvas into pages of
+// floor(canvasWidth * pageHeight / pageWidth) px (worker.js:182), so a sheet a
+// pixel past that height becomes two pages -- and `avoid-all` first inserts a
+// padding div (pagebreaks.js:115-121) to push the straddling block to the next
+// page, so the spill arrives as a page of white space. A report whose KPI
+// keywords ran long came out as three mostly blank pages that way, while a
+// shorter one (95% of the same page height) was fine (user, 2026-09-20).
+//
+// With `fitPage` the page grows to the sheet instead: the height html2pdf's own
+// arithmetic needs for a single page, never less than the configured one, so
+// short reports keep exactly the page they have today. `+ 1` absorbs the floor().
+//
+// A sheet tall enough to bust the canvas limits below would come back blank, so
+// the capture scale drops just far enough to stay inside them -- a softer image,
+// but still one page, and still every pixel of the sheet.
+
+function fitsOnePage(opts: PdfOpts): boolean {
+  return opts.fitPage === true;
+}
+
+function fittedFormat(el: HTMLElement, opts: PdfOpts): [number, number] {
+  const [pageWidth, pageHeight] = pageSize(opts);
+  const { width, height } = sheetSize(el);
+  if (!width || !height) return [pageWidth, pageHeight];
+  return [pageWidth, Math.max(pageHeight, Math.ceil((pageWidth * height) / width) + 1)];
+}
+
+function fittedScale(el: HTMLElement, opts: PdfOpts): number {
+  const wanted = Number(html2canvasOpts(opts).scale ?? 2) || 1;
+  const { width, height } = sheetSize(el);
+  if (!width || !height) return wanted;
+  const bySide = MAX_CANVAS_SIDE / Math.max(width, height);
+  const byArea = Math.sqrt(MAX_CANVAS_AREA / (width * height));
+  return Math.floor(Math.min(wanted, bySide, byArea) * 100) / 100;
+}
+
+/** `opts` with the page grown to the sheet, when the caller asked for one page. */
+function fitPageToSheet(el: HTMLElement, opts: PdfOpts): PdfOpts {
+  if (!fitsOnePage(opts)) return opts;
+  const jspdf = (typeof opts.jsPDF === "object" && opts.jsPDF !== null ? opts.jsPDF : {}) as Record<
+    string,
+    unknown
+  >;
+  return {
+    ...opts,
+    jsPDF: { ...jspdf, format: fittedFormat(el, opts) },
+    html2canvas: { ...html2canvasOpts(opts), scale: fittedScale(el, opts) },
+  };
+}
 
 // --- Tall sheets ------------------------------------------------------------
 //
@@ -128,11 +185,13 @@ export async function pdfBlob(
   el: HTMLElement,
   opts: PdfOpts = ESG_PDF_OPTS,
 ): Promise<Blob> {
-  if (tooTallForOneCanvas(el, opts)) {
-    return (await bandedDoc(el, opts)).output("blob");
+  const fitted = fitPageToSheet(el, opts);
+  // Banding is what splits a tall sheet across pages; a one-pager never takes it.
+  if (!fitsOnePage(fitted) && tooTallForOneCanvas(el, fitted)) {
+    return (await bandedDoc(el, fitted)).output("blob");
   }
   const html2pdf = (await import("html2pdf.js")).default;
-  return html2pdf().set(opts).from(el).outputPdf("blob");
+  return html2pdf().set(fitted).from(el).outputPdf("blob");
 }
 
 /** Renders `el` to a PDF and triggers a browser download as `filename`. */
@@ -141,13 +200,14 @@ export async function downloadPdf(
   filename: string,
   opts: PdfOpts = ESG_PDF_OPTS,
 ): Promise<void> {
-  if (tooTallForOneCanvas(el, opts)) {
-    (await bandedDoc(el, opts)).save(filename);
+  const fitted = fitPageToSheet(el, opts);
+  if (!fitsOnePage(fitted) && tooTallForOneCanvas(el, fitted)) {
+    (await bandedDoc(el, fitted)).save(filename);
     return;
   }
   const html2pdf = (await import("html2pdf.js")).default;
   await html2pdf()
-    .set({ ...opts, filename })
+    .set({ ...fitted, filename })
     .from(el)
     .save();
 }

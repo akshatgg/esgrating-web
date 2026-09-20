@@ -51,6 +51,7 @@ export type ReportEdits = {
   kpi_scores?: Partial<Record<Cat, Record<string, number>>>;
   pillar_overrides?: Partial<Record<Cat, number | null>>;
   logo?: string | null;
+  corner_logo?: string | null;
   updated_at?: string;
   updated_by?: string;
 };
@@ -58,6 +59,8 @@ export type ReportEdits = {
 type Common = {
   headings?: Record<string, string>;
   logo_url?: string | null;
+  /** The optional logo in the sheet's top-right corner, when one is uploaded. */
+  corner_logo_url?: string | null;
   pillar_manual?: Partial<Record<Cat, boolean>>;
   company?: string;
   fy?: string;
@@ -85,6 +88,23 @@ export type Effective = BfsiEffective | EsgEffective;
  * page edits for it; the pillar score can still be set directly). */
 export type PagesEditable = Partial<Record<Cat, boolean>>;
 
+/** One strength or weakness of the rating: a headline, then the paragraph of
+ * evidence behind it (esgratings-api app/reports/summary.py). */
+export type RatingDriver = { headline?: string; detail?: string };
+
+/** The rating narrative the AI wrote when the report was analysed. Absent on
+ * reports analysed before it existed, and on ones whose run could not write it. */
+export type RatingNarrative = {
+  executive_summary?: string;
+  favourable_factors?: string;
+  constraints?: string;
+  rating_rationale?: string;
+  strengths?: RatingDriver[];
+  weaknesses?: RatingDriver[];
+  /** Per pillar, the written assessment: several paragraphs separated by blank lines. */
+  pillar_narratives?: Partial<Record<Cat, string>>;
+};
+
 /** GET …/report and PUT …/report/edits. */
 export type ReportState<E extends Effective = Effective> = {
   effective: E;
@@ -97,6 +117,7 @@ export type ReportState<E extends Effective = Effective> = {
   edited: boolean;
   heading_keys?: string[];
   field_keys?: string[];
+  narrative?: RatingNarrative | null;
 };
 
 export type PreviewResult<E extends Effective = Effective> = {
@@ -162,16 +183,34 @@ export function resetReportEdits(kind: ReportKind, id: string) {
   return apiFetch<unknown>(`${base(kind, id)}/edits`, { method: "DELETE" });
 }
 
-/** POST …/report/logo — stored at once (not part of Save); returns the GET body. */
-export function uploadReportLogo<E extends Effective>(kind: ReportKind, id: string, file: File) {
-  const body = new FormData();
-  body.append("logo", file);
-  return apiUpload<ReportState<E>>(`${base(kind, id)}/logo`, body);
+/** Which logo: the report's own, or the one in the sheet's top-right corner. */
+export type LogoSlot = "main" | "corner";
+
+function logoUrl(kind: ReportKind, id: string, slot: LogoSlot) {
+  const url = `${base(kind, id)}/logo`;
+  return slot === "main" ? url : `${url}?slot=${slot}`;
 }
 
-/** DELETE …/report/logo — back to the default logo; returns the GET body. */
-export function deleteReportLogo<E extends Effective>(kind: ReportKind, id: string) {
-  return apiFetch<ReportState<E>>(`${base(kind, id)}/logo`, { method: "DELETE" });
+/** POST …/report/logo — stored at once (not part of Save); returns the GET body. */
+export function uploadReportLogo<E extends Effective>(
+  kind: ReportKind,
+  id: string,
+  file: File,
+  slot: LogoSlot = "main",
+) {
+  const body = new FormData();
+  body.append("logo", file);
+  return apiUpload<ReportState<E>>(logoUrl(kind, id, slot), body);
+}
+
+/** DELETE …/report/logo — back to the default logo (the corner one: to none);
+ * returns the GET body. */
+export function deleteReportLogo<E extends Effective>(
+  kind: ReportKind,
+  id: string,
+  slot: LogoSlot = "main",
+) {
+  return apiFetch<ReportState<E>>(logoUrl(kind, id, slot), { method: "DELETE" });
 }
 
 /** The edits object without server bookkeeping. The logo is never sent: it
@@ -233,7 +272,15 @@ export function bfsiView(
 /** The logo `<img>` src for an effective report, or null for the default.
  * `bust` changes after every upload so the browser refetches. */
 export function logoSrcOf(eff: Effective | null | undefined, bust: number): string | null {
-  const url = eff?.logo_url;
+  return bustedSrc(eff?.logo_url, bust);
+}
+
+/** The corner logo's `<img>` src, or null when the corner holds no logo. */
+export function cornerLogoSrcOf(eff: Effective | null | undefined, bust: number): string | null {
+  return bustedSrc(eff?.corner_logo_url, bust);
+}
+
+function bustedSrc(url: string | null | undefined, bust: number): string | null {
   if (!url) return null;
   return bust ? `${url}${url.includes("?") ? "&" : "?"}v=${bust}` : url;
 }

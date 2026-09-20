@@ -108,6 +108,21 @@ textarea.input {
   font-size: 0.92em;
   line-height: 1.6;
 }
+/* The chip's own text, edited in place. min-width keeps a chip cleared to retype
+   clickable, and the caret visible, instead of collapsing to nothing. */
+.chipText {
+  outline: none;
+  min-width: 1ch;
+  cursor: text;
+  white-space: pre-wrap;
+  border-bottom: 1px dashed transparent;
+}
+.chipText:hover {
+  border-bottom-color: color-mix(in srgb, currentColor 40%, transparent);
+}
+.chipText:focus {
+  border-bottom-color: currentColor;
+}
 .chip button {
   font: inherit;
   color: inherit;
@@ -129,6 +144,46 @@ textarea.input {
   composes: input;
   width: 9em;
   flex: 1 1 7em;
+}
+
+/* The sheet's corner slot in edit mode: the three-way switch above whatever the
+   corner is set to show. */
+.slot {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.slotModes {
+  display: inline-flex;
+  gap: 2px;
+}
+.slotMode {
+  font: 500 11px/1.2 ui-sans-serif, system-ui, sans-serif;
+  color: #2166b8;
+  background: #fff;
+  border: 1px solid #c9d6ea;
+  border-radius: 5px;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+.slotMode:hover {
+  background: #eef4fc;
+}
+.slotModeOn {
+  composes: slotMode;
+  color: #fff;
+  background: #2166b8;
+  border-color: #2166b8;
+}
+.slotImage {
+  display: block;
+}
+.slotEmpty {
+  display: inline-block;
+  font: 500 12px/1.2 ui-sans-serif, system-ui, sans-serif;
+  color: #5c6b82;
+  padding: 10px 14px;
 }
 
 .tag {

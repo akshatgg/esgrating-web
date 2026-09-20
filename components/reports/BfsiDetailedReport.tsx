@@ -10,7 +10,7 @@ import {
 } from "@/lib/types";
 import { bfsiGrade, GRADE_COLORS } from "@/lib/grades";
 import { asArray, formatUtc, numberFormat, phpFloat } from "@/lib/format";
-import { LIST_MAX } from "@/lib/reportEdits";
+import { LIST_MAX, type RatingNarrative } from "@/lib/reportEdits";
 import Doughnut from "@/components/reports/Doughnut";
 import {
   EditableHeading,
@@ -105,6 +105,9 @@ type BfsiDetailedReportProps = {
   recommendation: string;
   /** Pillar grades from the server; without them the display ladder is used. */
   grades?: PillarGrades;
+  /** The rating narrative written when the report was analysed; absent on older
+   * reports, which then read exactly as they do now. */
+  narrative?: RatingNarrative | null;
 };
 
 /** Port of report.php's `#bfsiReport` card (sections 1–9, bfsi.md §3). The ref
@@ -113,7 +116,7 @@ type BfsiDetailedReportProps = {
  * lists, keywords, the logo and the pillar scores become inline editors and the
  * Scoring Rationale becomes the editable page-scores table. */
 const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
-  function BfsiDetailedReport({ submission: sub, overall, recommendation, grades }, ref) {
+  function BfsiDetailedReport({ submission: sub, overall, recommendation, grades, narrative }, ref) {
     const ai = sub.ai_analysis;
     const edit = useReportEdit();
     const editing = edit?.editing ?? false;
@@ -259,6 +262,16 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
             : "based on a weighted analysis of the uploaded sustainability/ESG report"}{" "}
           (E: {phpFloat(scores.e)}, S: {phpFloat(scores.s)}, G: {phpFloat(scores.g)}).
         </p>
+        {narrative?.favourable_factors ? (
+          <p>
+            <b>The score favourably factors in</b> {narrative.favourable_factors}
+          </p>
+        ) : null}
+        {narrative?.constraints ? (
+          <p>
+            <b>The score is constrained by</b> {narrative.constraints}
+          </p>
+        ) : null}
 
         {/* 5. Risks, improvements, climate, governance */}
         <EditableHeading k="top_risks">Top 5 Risks</EditableHeading>

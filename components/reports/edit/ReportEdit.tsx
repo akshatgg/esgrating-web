@@ -43,6 +43,8 @@ export type ReportEditApi = {
   kpisEditable?: KpisEditable;
   /** Custom logo src, or null for the default. */
   logoSrc: string | null;
+  /** The corner logo's src, or null when nothing is uploaded there. */
+  cornerLogoSrc?: string | null;
   logoBusy?: boolean;
   logoError?: string | null;
   setHeading?: (key: string, value: string) => void;
@@ -53,6 +55,8 @@ export type ReportEditApi = {
   setReason?: (cat: Cat, page: number, text: string) => void;
   uploadLogo?: (file: File) => void;
   useDefaultLogo?: () => void;
+  uploadCornerLogo?: (file: File) => void;
+  removeCornerLogo?: () => void;
 };
 
 const Ctx = createContext<ReportEditApi | null>(null);
@@ -286,7 +290,52 @@ export function EditableListItems({
 
 // --- Keyword chips -------------------------------------------------------------------
 
-/** Keyword chips with add/remove. Outside edit mode renders `children`. */
+/** One chip's text, editable in place so a small correction doesn't mean deleting
+ * the tag and retyping it (user, 2026-09-20). contentEditable rather than an input
+ * so a long keyword still wraps inside the chip, as it does when not editing.
+ *
+ * React must never rewrite the node while it has focus -- that drops the caret to
+ * the start -- so the text is written imperatively, and only when it actually
+ * differs from what is already in the DOM (an outside change: undo, reset, save). */
+function ChipText({
+  value,
+  label,
+  onInput,
+  onCommit,
+}: {
+  value: string;
+  label: string;
+  onInput: (v: string) => void;
+  onCommit: (v: string) => void;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && el.textContent !== value) el.textContent = value;
+  }, [value]);
+  return (
+    <span
+      ref={ref}
+      className={s.chipText}
+      contentEditable
+      suppressContentEditableWarning
+      role="textbox"
+      aria-label={label}
+      spellCheck={false}
+      onInput={(e) => onInput(e.currentTarget.textContent ?? "")}
+      onBlur={(e) => onCommit((e.currentTarget.textContent ?? "").trim())}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
+/** Keyword chips with edit-in-place, add and remove. Outside edit mode renders
+ * `children`. */
 export function KeywordChips({
   label,
   values,
@@ -315,18 +364,32 @@ export function KeywordChips({
       e.preventDefault();
       add();
     } else if (e.key === "Backspace" && text === "" && values.length) {
+      // Backspace in the empty add box still deletes the last chip.
       onChange(values.slice(0, -1));
     }
   }
+  const replace = (i: number, v: string) => onChange(values.map((old, j) => (j === i ? v : old)));
+  const remove = (i: number) => onChange(values.filter((_, j) => j !== i));
+  /** Blurring a chip left blank removes it; while typing it stays, or the node
+   * being edited would unmount as soon as its text was cleared to retype. */
+  const commit = (i: number, v: string) => (v ? replace(i, v) : remove(i));
+
   return (
     <span className={s.chips} role="group" aria-label={label}>
       {values.map((v, i) => (
-        <span key={`${v}-${i}`} className={s.chip}>
-          {v}
+        // Keyed by position, not text: a key that changed with every keystroke
+        // would remount the chip mid-edit and lose focus.
+        <span key={i} className={s.chip}>
+          <ChipText
+            value={v}
+            label={`${label}: ${v}`}
+            onInput={(next) => replace(i, next)}
+            onCommit={(next) => commit(i, next)}
+          />
           <button
             type="button"
             aria-label={`Remove ${v}`}
-            onClick={() => onChange(values.filter((_, j) => j !== i))}
+            onClick={() => remove(i)}
           >
             ×
           </button>
@@ -405,6 +468,117 @@ export function EditableLogo({
         </span>
       ) : null}
     </span>
+  );
+}
+
+/** A logo the sheet shows only when one is uploaded: no default to fall back to,
+ * so edit mode offers an upload button until there is one, then the image with
+ * Remove beside it. */
+function SlotLogo({ label, height }: { label: string; height?: number }) {
+  const ctx = useContext(Ctx);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const src = ctx?.cornerLogoSrc ?? null;
+  // eslint-disable-next-line @next/next/no-img-element -- plain <img> so html2canvas can capture it
+  const img = src ? <img src={src} alt={label} height={height} className={s.slotImage} /> : null;
+  if (!ctx?.editing) return img;
+  return (
+    <span className={s.logo}>
+      <button
+        type="button"
+        className={s.logoButton}
+        onClick={() => inputRef.current?.click()}
+        disabled={ctx.logoBusy}
+        title={src ? "Replace this logo" : "Upload a logo"}
+      >
+        {img ?? <span className={s.slotEmpty}>Upload a logo</span>}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) ctx.uploadCornerLogo?.(file);
+        }}
+      />
+      {ctx.logoBusy ? <span className={s.tag}>Uploading…</span> : null}
+      {src ? (
+        <button type="button" className={s.link} onClick={() => ctx.removeCornerLogo?.()}>
+          Remove this logo
+        </button>
+      ) : null}
+      {ctx.logoError ? (
+        <span role="alert" className={s.logoError}>
+          {ctx.logoError}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+// --- The sheet's optional corner and footer ------------------------------------------
+
+/** What the sheet's top-right corner shows. Stored as a choice, not as blank text:
+ * blank is "no override" everywhere here, so it could never mean "show nothing"
+ * (user, 2026-09-20). */
+export type HeaderSlotMode = "text" | "logo" | "none";
+const HEADER_SLOT_MODES: { mode: HeaderSlotMode; label: string }[] = [
+  { mode: "text", label: "Text" },
+  { mode: "logo", label: "Logo" },
+  { mode: "none", label: "Nothing" },
+];
+
+/** The corner itself: `children` (its editable text), an uploaded logo, or nothing.
+ * Edit mode adds the three-way switch above whichever is showing. */
+export function HeaderSlot({ children, logoHeight }: { children: ReactNode; logoHeight?: number }) {
+  const ctx = useContext(Ctx);
+  const mode = useField<HeaderSlotMode>("header_slot", "text");
+  if (!ctx?.editing) {
+    if (mode === "none") return null;
+    return mode === "logo" ? <SlotLogo label="Report header logo" height={logoHeight} /> : <>{children}</>;
+  }
+  return (
+    <span className={s.slot}>
+      <span className={s.slotModes} role="group" aria-label="What this corner shows">
+        {HEADER_SLOT_MODES.map(({ mode: m, label }) => (
+          <button
+            key={m}
+            type="button"
+            className={m === mode ? s.slotModeOn : s.slotMode}
+            aria-pressed={m === mode}
+            onClick={() => ctx.setField?.("header_slot", m)}
+          >
+            {label}
+          </button>
+        ))}
+      </span>
+      {mode === "text" ? children : null}
+      {mode === "logo" ? <SlotLogo label="Report header logo" height={logoHeight} /> : null}
+    </span>
+  );
+}
+
+/** An optional line along the bottom of the sheet: empty means the sheet shows
+ * none, so outside edit mode it renders nothing at all. */
+export function FooterNote({ className }: { className?: string }) {
+  const ctx = useContext(Ctx);
+  const text = useField<string>("footer_note", "");
+  if (!ctx?.editing) return text ? <div className={className}>{text}</div> : null;
+  return (
+    <div className={className}>
+      <DraftTextarea
+        className={s.input}
+        aria-label="Footer note (optional)"
+        placeholder="Optional note along the bottom — leave empty to show nothing"
+        value={text}
+        rows={2}
+        onCommit={(v) => ctx.setField?.("footer_note", v)}
+      />
+    </div>
   );
 }
 

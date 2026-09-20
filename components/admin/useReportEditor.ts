@@ -12,12 +12,14 @@ import {
   deleteReportLogo,
   draftFrom,
   getReport,
+  cornerLogoSrcOf,
   logoSrcOf,
   previewReport,
   pruneField,
   resetReportEdits,
   saveReportEdits,
   uploadReportLogo,
+  type LogoSlot,
   type Cat,
   type Effective,
   type PreviewResult,
@@ -251,7 +253,7 @@ export function useReportEditor<E extends Effective>(
     await onSaved?.();
   }
 
-  async function uploadLogo(file: File) {
+  async function uploadLogo(file: File, slot: LogoSlot = "main") {
     setLogoError(null);
     if (!LOGO_TYPES.includes(file.type)) {
       setLogoError("Use a PNG, JPEG or WebP image.");
@@ -261,7 +263,7 @@ export function useReportEditor<E extends Effective>(
       setLogoError("The logo must be 1 MB or smaller.");
       return;
     }
-    await logoRequest(() => uploadReportLogo<E>(kind, id, file));
+    await logoRequest(() => uploadReportLogo<E>(kind, id, file, slot));
   }
 
   /** The logo is stored immediately by POST/DELETE …/report/logo (Save and
@@ -271,7 +273,18 @@ export function useReportEditor<E extends Effective>(
     try {
       const res = await req();
       setReport(res);
-      setPreview((p) => (p ? { ...p, effective: { ...p.effective, logo_url: res.effective.logo_url } } : p));
+      setPreview((p) =>
+        p
+          ? {
+              ...p,
+              effective: {
+                ...p.effective,
+                logo_url: res.effective.logo_url,
+                corner_logo_url: res.effective.corner_logo_url,
+              },
+            }
+          : p,
+      );
       setLogoBust(Date.now());
     } catch (err) {
       setLogoError(message(err));
@@ -303,6 +316,7 @@ export function useReportEditor<E extends Effective>(
         kpis: report.kpis ?? {},
         kpisEditable: report.kpis_editable ?? {},
         logoSrc: logoSrcOf(report.effective, logoBust),
+        cornerLogoSrc: cornerLogoSrcOf(report.effective, logoBust),
       }
     : null;
 
@@ -321,6 +335,7 @@ export function useReportEditor<E extends Effective>(
           kpis: preview?.kpis ?? report.kpis ?? {},
           kpisEditable: preview?.kpis_editable ?? report.kpis_editable ?? {},
           logoSrc: logoSrcOf(liveEffective, logoBust),
+          cornerLogoSrc: cornerLogoSrcOf(liveEffective, logoBust),
           logoBusy,
           logoError,
           // Blank means "no override": the key is dropped and the default shows
@@ -375,6 +390,11 @@ export function useReportEditor<E extends Effective>(
           useDefaultLogo: () => {
             setLogoError(null);
             void logoRequest(() => deleteReportLogo<E>(kind, id));
+          },
+          uploadCornerLogo: (file) => void uploadLogo(file, "corner"),
+          removeCornerLogo: () => {
+            setLogoError(null);
+            void logoRequest(() => deleteReportLogo<E>(kind, id, "corner"));
           },
         }
       : null;

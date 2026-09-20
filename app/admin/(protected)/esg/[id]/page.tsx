@@ -21,7 +21,7 @@ import clsx from "clsx";
 import type { EsgSubmission } from "@/lib/types";
 import { apiFetch, apiFetchBlob, ApiError } from "@/lib/api";
 import { formatDate, slugify } from "@/lib/format";
-import { downloadPdf, pdfBlob, ESG_PDF_OPTS } from "@/lib/pdf";
+import { downloadPdf, pdfBlob, ESG_PDF_OPTS, ONE_PAGER_PDF_OPTS } from "@/lib/pdf";
 import type { EsgEffective } from "@/lib/reportEdits";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
@@ -163,7 +163,11 @@ export default function EsgSubmissionDetailPage() {
     setDownloading(true);
     setActionError(null);
     try {
-      await downloadPdf(el, detailed ? `esg-detailed-report-${id}.pdf` : PDF_FILENAME, ESG_PDF_OPTS);
+      await downloadPdf(
+        el,
+        detailed ? `esg-detailed-report-${id}.pdf` : PDF_FILENAME,
+        detailed ? ESG_PDF_OPTS : ONE_PAGER_PDF_OPTS,
+      );
     } catch {
       setActionError("Couldn't generate the PDF. Please try again.");
     } finally {
@@ -336,7 +340,7 @@ export default function EsgSubmissionDetailPage() {
                       getPdfs={async () => {
                         // Off-screen copies of both reports (below), whichever tab shows.
                         // Order matters: router_admin.py ESG_SEND_FILE_NAMES.
-                        const blobs = [await pdfBlob(pdfReportRef.current as HTMLElement, ESG_PDF_OPTS)];
+                        const blobs = [await pdfBlob(pdfReportRef.current as HTMLElement, ONE_PAGER_PDF_OPTS)];
                         if (viewFinal?.kpi_coverage && pdfDetailedRef.current) {
                           blobs.push(await pdfBlob(pdfDetailedRef.current, ESG_PDF_OPTS));
                         }
@@ -445,6 +449,7 @@ export default function EsgSubmissionDetailPage() {
                       companyName={sub.company_name}
                       fy={sub.report_year}
                       pages={editor.pages}
+                      narrative={editor.report?.narrative}
                     />
                   ) : (
                     <EsgReport
@@ -474,6 +479,7 @@ export default function EsgSubmissionDetailPage() {
                         companyName={sub.company_name}
                         fy={sub.report_year}
                         pages={editor.pages}
+                        narrative={editor.report?.narrative}
                       />
                     ) : null}
                   </div>
