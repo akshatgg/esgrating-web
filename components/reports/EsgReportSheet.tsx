@@ -1,5 +1,10 @@
 import { forwardRef, type ReactNode } from "react";
-import { EditableHeading, EditableLogo } from "@/components/reports/edit/ReportEdit";
+import {
+  EditableHeading,
+  EditableLogo,
+  FooterNote,
+  HeaderSlot,
+} from "@/components/reports/edit/ReportEdit";
 import styles from "@/components/reports/EsgReport.module.css";
 
 // The esg_template.html sheet (esg.md §A8), as a presentational component:
@@ -65,9 +70,11 @@ const EsgReportSheet = forwardRef<HTMLDivElement, EsgReportSheetProps>(function 
           <div>
             <EditableLogo defaultSrc={ESG_REPORT_LOGO} alt="ESG Logo" width={100} height={100} />
           </div>
-          <EditableHeading k="sebi_line" as="div">
-            SEBI Registered ERP
-          </EditableHeading>
+          <HeaderSlot logoHeight={54}>
+            <EditableHeading k="sebi_line" as="div">
+              SEBI Registered ERP
+            </EditableHeading>
+          </HeaderSlot>
         </div>
 
         <div className={styles["esg-card"]}>
@@ -257,6 +264,8 @@ const EsgReportSheet = forwardRef<HTMLDivElement, EsgReportSheetProps>(function 
             </table>
           </div>
         </div>
+
+        <FooterNote className={styles["esg-footer-note"]} />
       </div>
     </div>
   );

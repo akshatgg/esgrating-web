@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { EsgListItem, EsgSubmission } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
-import { downloadPdf, ESG_PDF_OPTS } from "@/lib/pdf";
+import { downloadPdf, ONE_PAGER_PDF_OPTS } from "@/lib/pdf";
 import EsgReport, { ESG_REPORT_PDF_FILENAME } from "@/components/reports/EsgReport";
 import EsgRatingOnePager, { ratingPdfFilename } from "@/components/reports/EsgRatingOnePager";
 
@@ -59,7 +59,7 @@ export function useEsgOnePagerPdf() {
     if (!job || !el) return;
     const filename = job.submission ? ESG_REPORT_PDF_FILENAME : ratingPdfFilename(job.item);
     settled(el)
-      .then(() => downloadPdf(el, filename, ESG_PDF_OPTS))
+      .then(() => downloadPdf(el, filename, ONE_PAGER_PDF_OPTS))
       .catch(() => setError("Couldn't generate the PDF. Please try again."))
       .finally(() => {
         setJob(null);

@@ -7,7 +7,7 @@ import { ArrowLeft, Download, PencilLine, Sparkles } from "lucide-react";
 import clsx from "clsx";
 import type { BfsiDetail } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api";
-import { BFSI_PDF_OPTS, downloadPdf } from "@/lib/pdf";
+import { downloadPdf, ONE_PAGER_PDF_OPTS } from "@/lib/pdf";
 import { bfsiView, type BfsiEffective } from "@/lib/reportEdits";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
@@ -68,7 +68,7 @@ export default function BfsiOnePagerPage() {
     setDownloading(true);
     setActionError(null);
     try {
-      await downloadPdf(ref.current, `esg-rating-report-${id}.pdf`, BFSI_PDF_OPTS);
+      await downloadPdf(ref.current, `esg-rating-report-${id}.pdf`, ONE_PAGER_PDF_OPTS);
     } catch {
       setActionError("Couldn't generate the PDF. Please try again.");
     } finally {

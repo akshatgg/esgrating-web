@@ -48,10 +48,14 @@ export function bfsiGrade(score: number, whole = false): { grade: Grade; label: 
 }
 
 const FY_RE = /^(\d{4})-(\d{4})$/;
+// A single reporting year ("2025"), for companies whose reporting period is one
+// calendar year (user, 2026-09-20). It prints as typed — fyShort() leaves an input
+// FY_RE does not match alone — so only prevFy() has to know about it.
+const YEAR_RE = /^(\d{4})$/;
 
-/** "2024-2025" -> "FY 24-25". Port of `get_formatted_report_year()`
- * (esg_score_calculator-master/utils/get_html.py:34-38) — an unparsable or
- * "N/A" input is returned unchanged/as "N/A". */
+/** "2024-2025" -> "FY 24-25"; a single year ("2025") and any other unparsable
+ * input are returned unchanged. Port of `get_formatted_report_year()`
+ * (esg_score_calculator-master/utils/get_html.py:34-38) — "N/A" stays "N/A". */
 export function fyShort(fy: string): string {
   if (!fy || fy === "N/A") return "N/A";
   const m = FY_RE.exec(fy);
@@ -59,9 +63,12 @@ export function fyShort(fy: string): string {
   return `FY ${m[1].slice(2)}-${m[2].slice(2)}`;
 }
 
-/** "2024-2025" -> "2023-2024". Port of `get_previous_financial_year()`
+/** "2024-2025" -> "2023-2024", "2025" -> "2024". Port of
+ * `get_previous_financial_year()`
  * (esg_score_calculator-master/utils/get_html.py:40-42). */
 export function prevFy(fy: string): string {
+  const y = YEAR_RE.exec(fy);
+  if (y) return String(Number(y[1]) - 1);
   const m = FY_RE.exec(fy);
   if (!m) return fy;
   const start = Number(m[1]) - 1;

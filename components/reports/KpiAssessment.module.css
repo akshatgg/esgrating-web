@@ -106,3 +106,12 @@
   background: #f2f5fa;
   font-weight: 700;
 }
+
+/* Why a KPI scored what it scored (the Reason column). Narrower type than the rest of
+   the row: it carries sentences, not figures. */
+.reason {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #33415c;
+  min-width: 220px;
+}

@@ -14,3 +14,56 @@
   color: #1e7a4c;
   font-weight: 600;
 }
+
+/* Key Rating Drivers: a headline in bold, then the paragraph of evidence behind it
+   (the rating narrative, esgratings-api app/reports/summary.py). */
+.driver-heading {
+  margin: 14px 0 6px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #33415c;
+}
+.drivers {
+  margin: 0 0 12px;
+  padding-left: 18px;
+}
+.drivers li {
+  margin-bottom: 10px;
+  line-height: 1.55;
+  text-align: justify;
+}
+
+/* Each pillar's written assessment: a banner with the pillar and the score it earned,
+   then the paragraphs. Mirrors how a rating rationale is laid out. */
+.pillar-section {
+  margin: 18px 0 20px;
+  break-inside: avoid;
+}
+.pillar-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-left: 5px solid #8bc34a;
+  background: #f4f7fb;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+.pillar-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #17285a;
+}
+.pillar-score {
+  font-size: 14px;
+  font-weight: 700;
+  color: #33415c;
+  white-space: nowrap;
+}
+.pillar-para {
+  margin: 0 0 9px;
+  line-height: 1.6;
+  text-align: justify;
+}

@@ -24,7 +24,7 @@ import clsx from "clsx";
 import type { BfsiDetail } from "@/lib/types";
 import { apiFetch, apiFetchBlob, ApiError } from "@/lib/api";
 import { formatUtc, numberFormat, slugify } from "@/lib/format";
-import { BFSI_PDF_OPTS, downloadPdf, pdfBlob } from "@/lib/pdf";
+import { BFSI_PDF_OPTS, downloadPdf, ONE_PAGER_PDF_OPTS, pdfBlob } from "@/lib/pdf";
 import { bfsiView, type BfsiEffective } from "@/lib/reportEdits";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
@@ -165,7 +165,7 @@ export default function BfsiSubmissionDetailPage() {
       await downloadPdf(
         el,
         onePager ? `esg-rating-report-${id}.pdf` : `bfsi-detailed-report-${id}.pdf`,
-        BFSI_PDF_OPTS,
+        onePager ? ONE_PAGER_PDF_OPTS : BFSI_PDF_OPTS,
       );
     } catch {
       setActionError("Couldn't generate the PDF. Please try again.");
@@ -180,7 +180,7 @@ export default function BfsiSubmissionDetailPage() {
     if (!detailed || !onePager) throw new Error("The report isn't ready yet.");
     // Order matters: the API names them bfsi-detailed-report-<id>.pdf, then
     // esg-rating-report-<id>.pdf (router_admin.py SEND_FILE_NAMES).
-    return [await pdfBlob(detailed, BFSI_PDF_OPTS), await pdfBlob(onePager, BFSI_PDF_OPTS)];
+    return [await pdfBlob(detailed, BFSI_PDF_OPTS), await pdfBlob(onePager, ONE_PAGER_PDF_OPTS)];
   }
 
   /** Same page-scores sheet as the ESG report: one row per page and category. */
@@ -455,6 +455,7 @@ export default function BfsiSubmissionDetailPage() {
                           overall={live.overall}
                           recommendation={live.recommendation}
                           grades={live.grades}
+                          narrative={editor.report?.narrative}
                         />
                       )}
                     </ReportEditProvider>
@@ -477,6 +478,7 @@ export default function BfsiSubmissionDetailPage() {
                     overall={saved.overall}
                     recommendation={saved.recommendation}
                     grades={saved.grades}
+                    narrative={editor.report?.narrative}
                   />
                   <BfsiOnePager
                     ref={pdfOnePagerRef}

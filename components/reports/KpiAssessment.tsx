@@ -1,4 +1,4 @@
-import { KPI_SCORE_METHOD, type KpiCoverage, type KpiCoverageCategory, type KpiLevel, type PageScoreRow } from "@/lib/types";
+import { KPI_SCORE_METHOD, type KpiCoverage, type KpiCoverageCategory, type KpiLevel } from "@/lib/types";
 import type { Cat } from "@/lib/reportEdits";
 import { ScoreInput, useReportEdit } from "@/components/reports/edit/ReportEdit";
 import styles from "@/components/reports/KpiAssessment.module.css";
@@ -26,60 +26,31 @@ function points(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
 
+/** Why a KPI scored what it scored, from the pages that scored it: the page the score
+ * came from first, then the others that supported it (user, 2026-09-20). Every word is
+ * the scoring call's own reason for that page, so the column explains the score rather
+ * than restating it. A KPI the report never addressed has none -- its 0 needs no
+ * explaining. */
+function reasonOf(k: KpiCoverageCategory["kpis"][number]): string {
+  const ev = k.evidence;
+  if (!ev?.reason) return "";
+  const cite = (page: number | string | undefined, score: number | undefined, reason: string) =>
+    `p.${page ?? "?"}${typeof score === "number" ? ` (${points(score)})` : ""}: ${reason}`;
+  const parts = [
+    k.capped
+      ? `Held at ${points(best(k))} — poor performance on ${cite(ev.page, ev.score, ev.reason)}`
+      : cite(ev.page, ev.score, ev.reason),
+  ];
+  for (const o of ev.also ?? []) {
+    if (o?.reason) parts.push(`${k.capped && parts.length === 1 ? "Best evidence " : "Also "}${cite(o.page, o.score, o.reason)}`);
+  }
+  return parts.join(". ") + ".";
+}
+
 const scored = (data: KpiCoverageCategory) => data.method === KPI_SCORE_METHOD;
 
 /** A KPI's best score, 0–100 (older results carry it as points). */
 const best = (k: KpiCoverageCategory["kpis"][number]) => k.score ?? k.points;
-
-/** The ESG report's Page Scores: one row per page, each pillar's page score and
- * how many KPIs that page proved. Page scores are for reading only; the pillar
- * scores come from the KPI Assessment above. */
-export function PageScores({ rows }: { rows: PageScoreRow[] }) {
-  if (rows.length === 0) return null;
-  const cell = (row: PageScoreRow, cat: (typeof CATEGORY_ORDER)[number]) => {
-    const v = row[cat];
-    if (!v) return "—";
-    const n = v.kpis;
-    return (
-      <>
-        <b>{v.score ?? "—"}</b>
-        <span className={styles.pages}> · {n === 0 ? "no KPI" : `${n} KPI${n === 1 ? "" : "s"}`}</span>
-      </>
-    );
-  };
-  return (
-    <section className={styles.section}>
-      <h2 className={styles.title}>Page Scores</h2>
-      <p className={styles.note}>
-        A page&apos;s score is the average of the KPI scores found on that page. Page scores are
-        shown for reference only; the pillar scores come from each KPI&apos;s best score in the KPI
-        Assessment.
-      </p>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>Page</th>
-            {CATEGORY_ORDER.map((cat) => (
-              <th key={cat}>{cat}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={String(row.page)}>
-              <td>
-                <b>p.{row.page}</b>
-              </td>
-              {CATEGORY_ORDER.map((cat) => (
-                <td key={cat}>{cell(row, cat)}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
-  );
-}
 
 export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
   const ctx = useReportEdit();
@@ -117,6 +88,11 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
         const editable = Boolean(ctx?.editing && ctx.kpisEditable?.[code] && ctx.setKpiScore);
         const overrides = ctx?.kpiScores?.[code] ?? {};
         const originals = new Map((ctx?.kpis?.[code] ?? []).map((r) => [r.kpi, r.original_score]));
+        // Every KPI-scored report gets the column, whether or not each row filled it: a
+        // column that comes and goes reads as a missing feature (user, 2026-09-20). A
+        // strong/partial result -- BFSI, and ESG runs from before KPI scoring -- has no
+        // reasons at all and never will, so there the column stays off.
+        const anyReason = isScored;
         return (
           <div key={cat} className={styles.category}>
             <div className={styles.head}>
@@ -132,6 +108,7 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
                   <th>{isScored ? "Level" : "Result"}</th>
                   <th className={styles.num}>{isScored ? "Score" : "Points"}</th>
                   <th>Found on pages</th>
+                  {anyReason ? <th>Reason</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -163,6 +140,9 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
                         {pagesText(k.pages)}
                         {k.capped ? " · capped at 20 (poor performance found)" : null}
                       </td>
+                      {anyReason ? (
+                        <td className={styles.reason}>{reasonOf(k) || (best(k) > 0 ? "—" : "")}</td>
+                      ) : null}
                     </tr>
                   );
                 })}
@@ -175,7 +155,7 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
                   <td className={styles.num}>
                     {typeof data.analyst_score === "number" ? points(data.analyst_score) : points(data.score)}
                   </td>
-                  <td className={styles.pages}>
+                  <td className={styles.pages} colSpan={anyReason ? 2 : 1}>
                     {typeof data.analyst_score === "number"
                       ? `Set by analyst (KPI total ${points(data.score)})`
                       : null}
