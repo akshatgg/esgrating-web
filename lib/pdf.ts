@@ -54,13 +54,8 @@ function fitsOnePage(opts: PdfOpts): boolean {
   return opts.fitPage === true;
 }
 
-function fittedFormat(el: HTMLElement, opts: PdfOpts): [number, number] {
-  const [pageWidth, pageHeight] = pageSize(opts);
-  const { width, height } = sheetSize(el);
-  if (!width || !height) return [pageWidth, pageHeight];
-  return [pageWidth, Math.max(pageHeight, Math.ceil((pageWidth * height) / width) + 1)];
-}
-
+/** The largest capture scale that still fits one canvas of the whole sheet inside every
+ * browser's limits. Past them the browser hands back a blank canvas with no error. */
 function fittedScale(el: HTMLElement, opts: PdfOpts): number {
   const wanted = Number(html2canvasOpts(opts).scale ?? 2) || 1;
   const { width, height } = sheetSize(el);
@@ -70,18 +65,36 @@ function fittedScale(el: HTMLElement, opts: PdfOpts): number {
   return Math.floor(Math.min(wanted, bySide, byArea) * 100) / 100;
 }
 
-/** `opts` with the page grown to the sheet, when the caller asked for one page. */
-function fitPageToSheet(el: HTMLElement, opts: PdfOpts): PdfOpts {
-  if (!fitsOnePage(opts)) return opts;
-  const jspdf = (typeof opts.jsPDF === "object" && opts.jsPDF !== null ? opts.jsPDF : {}) as Record<
-    string,
-    unknown
-  >;
-  return {
-    ...opts,
-    jsPDF: { ...jspdf, format: fittedFormat(el, opts) },
-    html2canvas: { ...html2canvasOpts(opts), scale: fittedScale(el, opts) },
-  };
+/** The sheet as a ONE-page jsPDF document.
+ *
+ * html2pdf is not asked to paginate at all here. Computing a page height for it and
+ * trusting it to fit means matching its own rounding -- floor(canvasWidth * pageHeight /
+ * pageWidth) against the canvas html2canvas actually produced -- and a sheet a pixel over
+ * that line comes out as a second, empty page (production, 2026-09-21). Instead the canvas
+ * is drawn first and the page is cut to it, so there is exactly one page by construction
+ * and no arithmetic left to get wrong. The page keeps the configured width, and its height
+ * follows the sheet's own proportions, never shorter than the configured page.
+ */
+async function onePageDoc(el: HTMLElement, opts: PdfOpts) {
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas"),
+    import("jspdf"),
+  ]);
+  const h2c = html2canvasOpts(opts);
+  const [pageWidth, minHeight] = pageSize(opts);
+  const canvas = await html2canvas(el, {
+    scale: fittedScale(el, opts),
+    backgroundColor: "#ffffff",
+    useCORS: Boolean(h2c.useCORS),
+    onclone: h2c.onclone as ((doc: Document) => void) | undefined,
+  });
+  const height = Math.max(minHeight, (canvas.height * pageWidth) / (canvas.width || 1));
+  const doc = new jsPDF({ unit: "px", format: [pageWidth, height], orientation: "portrait" });
+  // Drawn at the sheet's own proportions and pinned to the top, so a sheet shorter than
+  // the minimum page leaves its white space at the bottom rather than being stretched.
+  const drawn = (canvas.height * pageWidth) / (canvas.width || 1);
+  doc.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, pageWidth, drawn);
+  return doc;
 }
 
 // --- Tall sheets ------------------------------------------------------------
@@ -101,6 +114,9 @@ function fitPageToSheet(el: HTMLElement, opts: PdfOpts): PdfOpts {
 const MAX_CANVAS_AREA = 16_000_000;
 const MAX_CANVAS_SIDE = 8_192;
 const PAGES_PER_BAND = 2;
+const MAX_PAGES = 500;
+/** A page cut short to keep a block whole must still be at least this full. */
+const MIN_PAGE_FILL = 0.15;
 const DEFAULT_PAGE: [number, number] = [750, 1400];
 
 type PdfOpts = Record<string, unknown>;
@@ -132,6 +148,53 @@ function tooTallForOneCanvas(el: HTMLElement, opts: PdfOpts): boolean {
   return height * scale > MAX_CANVAS_SIDE || width * scale * height * scale > MAX_CANVAS_AREA;
 }
 
+/** The blocks a page must not be cut through: every element that fits inside one page,
+ * as a [top, bottom] range measured from the top of the sheet. An element taller than a
+ * page cannot be kept whole, so its children are considered instead.
+ *
+ * html2canvas draws a picture; CSS `break-inside` means nothing to it, and slicing that
+ * picture at fixed page heights cut headings and banners in half (user, 2026-09-21). */
+function unbreakableRanges(root: HTMLElement, maxHeight: number): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  const rootTop = root.getBoundingClientRect().top;
+  const visit = (el: Element) => {
+    for (const child of Array.from(el.children)) {
+      const box = child.getBoundingClientRect();
+      if (box.height <= 0) continue;
+      const top = box.top - rootTop;
+      if (box.height <= maxHeight) ranges.push([top, top + box.height]);
+      else visit(child); // too tall to keep whole: look for smaller blocks inside it
+    }
+  };
+  visit(root);
+  return ranges;
+}
+
+/** Where each page starts and ends, in sheet pixels. A page ends at the page height
+ * unless that lands inside a block, in which case it ends where that block begins and
+ * the rest of the page is left white -- the same bargain a print stylesheet makes. */
+function pageCuts(height: number, pageHeight: number, ranges: Array<[number, number]>): number[] {
+  const cuts = [0];
+  let cur = 0;
+  let guard = 0;
+  while (cur + pageHeight < height && guard++ < MAX_PAGES) {
+    let next = cur + pageHeight;
+    for (const [top, bottom] of ranges) {
+      // A block that starts after this page began and is cut by the page's end: the
+      // page ends where it starts instead.
+      if (top > cur && top < next && bottom > next) next = Math.min(next, top);
+    }
+    // Moving the cut up is worth it only if the page still carries something. A block
+    // that begins just inside a page and runs past its end would otherwise leave an
+    // almost blank sheet, which is worse than splitting the block.
+    if (next - cur < pageHeight * MIN_PAGE_FILL) next = cur + pageHeight;
+    cuts.push(next);
+    cur = next;
+  }
+  cuts.push(height);
+  return cuts;
+}
+
 /** The sheet as a jsPDF document, captured band by band (see above). */
 async function bandedDoc(el: HTMLElement, opts: PdfOpts) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
@@ -142,7 +205,9 @@ async function bandedDoc(el: HTMLElement, opts: PdfOpts) {
   const scale = Number(h2c.scale ?? 2) || 1;
   const [pageWidth, pageHeight] = pageSize(opts);
   const { width, height } = sheetSize(el);
-  const pages = Math.max(1, Math.ceil(height / pageHeight));
+  // Pages end on a block boundary, so one is never cut through a heading or a banner.
+  const cuts = pageCuts(height, pageHeight, unbreakableRanges(el, pageHeight));
+  const pages = cuts.length - 1;
 
   const doc = new jsPDF({ unit: "px", format: [pageWidth, pageHeight], orientation: "portrait" });
   const page = document.createElement("canvas");
@@ -152,25 +217,30 @@ async function bandedDoc(el: HTMLElement, opts: PdfOpts) {
   if (!ctx) throw new Error("canvas unavailable");
 
   for (let first = 0; first < pages; first += PAGES_PER_BAND) {
-    const top = first * pageHeight;
+    const last = Math.min(first + PAGES_PER_BAND, pages);
+    const top = cuts[first];
     const band = await html2canvas(el, {
       x: 0,
       y: top,
       width,
-      height: Math.min(PAGES_PER_BAND * pageHeight, height - top),
+      height: cuts[last] - top,
       scale,
       backgroundColor: "#ffffff",
       useCORS: Boolean(h2c.useCORS),
       onclone: h2c.onclone as ((doc: Document) => void) | undefined,
     });
     const fit = page.width / band.width; // the sheet is scaled to the page width
-    for (let i = 0; first + i < pages && i < PAGES_PER_BAND; i++) {
-      const sourceTop = Math.round(i * pageHeight * scale);
-      const sourceHeight = Math.min(page.height, band.height - sourceTop);
+    for (let i = first; i < last; i++) {
+      const sourceTop = Math.round((cuts[i] - top) * scale);
+      const sourceHeight = Math.min(
+        Math.round((cuts[i + 1] - cuts[i]) * scale),
+        band.height - sourceTop,
+      );
       if (sourceHeight <= 0) break;
-      if (first + i > 0) doc.addPage([pageWidth, pageHeight], "portrait");
+      if (i > 0) doc.addPage([pageWidth, pageHeight], "portrait");
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, page.width, page.height);
+      // Drawn at the top: a page cut short to keep a block whole leaves white below it.
       ctx.drawImage(band, 0, sourceTop, band.width, sourceHeight,
                     0, 0, page.width, sourceHeight * fit);
       doc.addImage(page.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, pageWidth, pageHeight);
@@ -185,13 +255,12 @@ export async function pdfBlob(
   el: HTMLElement,
   opts: PdfOpts = ESG_PDF_OPTS,
 ): Promise<Blob> {
-  const fitted = fitPageToSheet(el, opts);
-  // Banding is what splits a tall sheet across pages; a one-pager never takes it.
-  if (!fitsOnePage(fitted) && tooTallForOneCanvas(el, fitted)) {
-    return (await bandedDoc(el, fitted)).output("blob");
+  if (fitsOnePage(opts)) return (await onePageDoc(el, opts)).output("blob");
+  if (tooTallForOneCanvas(el, opts)) {
+    return (await bandedDoc(el, opts)).output("blob");
   }
   const html2pdf = (await import("html2pdf.js")).default;
-  return html2pdf().set(fitted).from(el).outputPdf("blob");
+  return html2pdf().set(opts).from(el).outputPdf("blob");
 }
 
 /** Renders `el` to a PDF and triggers a browser download as `filename`. */
@@ -200,14 +269,17 @@ export async function downloadPdf(
   filename: string,
   opts: PdfOpts = ESG_PDF_OPTS,
 ): Promise<void> {
-  const fitted = fitPageToSheet(el, opts);
-  if (!fitsOnePage(fitted) && tooTallForOneCanvas(el, fitted)) {
-    (await bandedDoc(el, fitted)).save(filename);
+  if (fitsOnePage(opts)) {
+    (await onePageDoc(el, opts)).save(filename);
+    return;
+  }
+  if (tooTallForOneCanvas(el, opts)) {
+    (await bandedDoc(el, opts)).save(filename);
     return;
   }
   const html2pdf = (await import("html2pdf.js")).default;
   await html2pdf()
-    .set({ ...fitted, filename })
+    .set({ ...opts, filename })
     .from(el)
     .save();
 }

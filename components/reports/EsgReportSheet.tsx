@@ -40,7 +40,8 @@ export type EsgReportSheetProps = {
   result: { score: ReactNode; performance: ReactNode; rating: ReactNode };
   /** Score Summary: the year rows (the label gets the colon), then Status. */
   scoreSummary: EsgSheetRow[];
-  status: ReactNode;
+  /** The trend row under the score summary. Omitted entirely when not given. */
+  status?: ReactNode;
   /** Colours the Status cell like the template's Improved / Impaired. */
   statusTone?: "positive" | "negative";
   /** The navy panel's doughnut, and the score shown in its centre. */
@@ -198,10 +199,12 @@ const EsgReportSheet = forwardRef<HTMLDivElement, EsgReportSheetProps>(function 
                         <td className={styles.item_bold}>{row.value}</td>
                       </tr>
                     ))}
-                    <tr>
-                      <td>Status:</td>
-                      <td className={statusClass}>{status}</td>
-                    </tr>
+                    {status ? (
+                      <tr>
+                        <td>Status:</td>
+                        <td className={statusClass}>{status}</td>
+                      </tr>
+                    ) : null}
                   </tbody>
                 </table>
               </div>

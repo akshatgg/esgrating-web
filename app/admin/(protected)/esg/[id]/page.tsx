@@ -448,14 +448,12 @@ export default function EsgSubmissionDetailPage() {
                       final={viewFinal}
                       companyName={sub.company_name}
                       fy={sub.report_year}
-                      pages={editor.pages}
                       narrative={editor.report?.narrative}
                     />
                   ) : (
                     <EsgReport
                       ref={reportRef}
                       final={viewFinal}
-                      yearScore={sub.year_score}
                       companyName={sub.company_name}
                       fy={sub.report_year}
                     />
@@ -468,7 +466,6 @@ export default function EsgSubmissionDetailPage() {
                     <EsgReport
                       ref={pdfReportRef}
                       final={viewFinal}
-                      yearScore={sub.year_score}
                       companyName={sub.company_name}
                       fy={sub.report_year}
                     />
@@ -478,7 +475,6 @@ export default function EsgSubmissionDetailPage() {
                         final={viewFinal}
                         companyName={sub.company_name}
                         fy={sub.report_year}
-                        pages={editor.pages}
                         narrative={editor.report?.narrative}
                       />
                     ) : null}

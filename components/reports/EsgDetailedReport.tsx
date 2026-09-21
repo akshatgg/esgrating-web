@@ -1,11 +1,18 @@
 import { forwardRef } from "react";
 import { KPI_SCORE_METHOD, type EsgFinal, type Grade, type KpiCoverageCategory } from "@/lib/types";
-import type { Pages, RatingDriver, RatingNarrative } from "@/lib/reportEdits";
+import type { RatingDriver, RatingNarrative } from "@/lib/reportEdits";
 import { GRADE_COLORS } from "@/lib/grades";
 import { formatScore, numberFormat } from "@/lib/format";
 import Doughnut from "@/components/reports/Doughnut";
 import KpiAssessment from "@/components/reports/KpiAssessment";
-import { useField } from "@/components/reports/edit/ReportEdit";
+import {
+  DraftInput,
+  DraftTextarea,
+  EditableHeading,
+  EditableText,
+  useField,
+  useReportEdit,
+} from "@/components/reports/edit/ReportEdit";
 import styles from "@/components/reports/BfsiDetailedReport.module.css";
 import extra from "@/components/reports/EsgDetailedReport.module.css";
 
@@ -32,12 +39,6 @@ function weightsOf(final: EsgFinal): Record<(typeof PILLARS)[number]["key"], num
     : { environmental: 30, social: 30, governance: 40 };
 }
 
-type RationaleLine = {
-  page: number | string;
-  score: number | string | null | undefined;
-  reason: string;
-  kpis?: string[];
-};
 
 /** evaluate_score()'s bands (app/esg/pipeline.py), as on the one-page report. */
 const SCORE_SCALE: ReadonlyArray<readonly [string, Grade, string]> = [
@@ -53,6 +54,27 @@ function listOr(items: string[], empty = "—"): string {
   return items.length ? items.join("; ") : empty;
 }
 
+/** A block of the written rating. Outside edit mode its paragraphs; in edit mode one
+ * textarea holding the whole block, blank lines and all -- an analyst corrects a
+ * paragraph, not a field (user, 2026-09-21). */
+function Prose({ k, label, text }: { k: string; label: string; text: string }) {
+  const paragraphs = paragraphsOf(text);
+  return (
+    <EditableText
+      k={k}
+      label={label}
+      value={text}
+      multiline
+    >
+      {paragraphs.map((p, i) => (
+        <p key={i} className={extra["pillar-para"]}>
+          {p}
+        </p>
+      ))}
+    </EditableText>
+  );
+}
+
 /** One pillar's written assessment: the pillar, the score it earned, then the
  * paragraphs explaining what the report showed and why that is good or weak
  * (user, 2026-09-20 — the shape a rating agency's report uses). Rendered only when
@@ -64,6 +86,10 @@ function PillarSections({
   narrative: RatingNarrative | null | undefined;
   final: EsgFinal;
 }) {
+  const ctx = useReportEdit();
+  const editing = ctx?.editing ?? false;
+  // The draft laid over what the server served, so typing in one pillar shows at once.
+  const drafts = useField<Record<string, string>>("pillar_narratives", {});
   const written = PILLARS.map((p) => ({
     ...p,
     score: final[`${p.key}_score` as keyof EsgFinal] as number,
@@ -71,11 +97,8 @@ function PillarSections({
     // overwrite: the banner needs both the pillar and how it performed.
     grade: final[`${p.key}_score_performance` as keyof EsgFinal] as string,
     performance: final[`${p.key}_score_performance_label` as keyof EsgFinal] as string,
-    paragraphs: (narrative?.pillar_narratives?.[p.cat] ?? "")
-      .split(/\n\s*\n/)
-      .map((t) => t.trim())
-      .filter(Boolean),
-  })).filter((p) => p.paragraphs.length);
+    text: narrative?.pillar_narratives?.[p.cat] ?? "",
+  })).filter((p) => p.text.trim() || editing);
   if (!written.length) return null;
   return (
     <>
@@ -88,11 +111,21 @@ function PillarSections({
               {p.performance ? ` (${p.performance})` : p.grade ? ` (${p.grade})` : null}
             </span>
           </div>
-          {p.paragraphs.map((text, i) => (
-            <p key={i} className={extra["pillar-para"]}>
-              {text}
-            </p>
-          ))}
+          {editing ? (
+            <DraftTextarea
+              className={extra["prose-input"]}
+              aria-label={`${p.label} assessment`}
+              rows={8}
+              value={drafts[p.cat] ?? p.text}
+              onCommit={(v) => ctx?.setField?.("pillar_narratives", { ...drafts, [p.cat]: v })}
+            />
+          ) : (
+            paragraphsOf(p.text).map((text, i) => (
+              <p key={i} className={extra["pillar-para"]}>
+                {text}
+              </p>
+            ))
+          )}
         </section>
       ))}
     </>
@@ -101,22 +134,63 @@ function PillarSections({
 
 /** A rating driver: its headline in bold, then the paragraph of evidence.
  * Written by the AI from the scored KPIs (esgratings-api app/reports/summary.py). */
-function Drivers({ items }: { items: RatingDriver[] }) {
+function Drivers({ k, items }: { k: "strengths" | "weaknesses"; items: RatingDriver[] }) {
+  const ctx = useReportEdit();
+  const editing = ctx?.editing ?? false;
+  const write = (i: number, part: "headline" | "detail", value: string) =>
+    ctx?.setField?.(
+      k,
+      items.map((d, j) => (j === i ? { headline: d.headline ?? "", detail: d.detail ?? "", [part]: value } : d)),
+    );
   return (
     <ul className={extra.drivers}>
       {items.map((d, i) => (
+        // Keyed by position: a key that changed as the headline is typed would remount
+        // the field and lose focus.
         <li key={i}>
-          {d.headline ? <b>{d.headline}</b> : null}
-          {d.headline && d.detail ? " — " : null}
-          {d.detail}
+          {editing ? (
+            <>
+              <DraftInput
+                className={extra["prose-input"]}
+                aria-label={`${k === "strengths" ? "Strength" : "Weakness"} ${i + 1} headline`}
+                value={d.headline ?? ""}
+                onCommit={(v) => write(i, "headline", v)}
+              />
+              <DraftTextarea
+                className={extra["prose-input"]}
+                aria-label={`${k === "strengths" ? "Strength" : "Weakness"} ${i + 1}`}
+                rows={4}
+                value={d.detail ?? ""}
+                onCommit={(v) => write(i, "detail", v)}
+              />
+            </>
+          ) : (
+            <>
+              {d.headline ? <b>{d.headline}</b> : null}
+              {d.headline && d.detail ? " — " : null}
+              {d.detail}
+            </>
+          )}
         </li>
       ))}
     </ul>
   );
 }
 
+/** A narrative field as its paragraphs: the AI separates them with a blank line. */
+function paragraphsOf(text: string | undefined): string[] {
+  return (text ?? "")
+    .split(/\n\s*\n/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
 function driversOf(items: RatingDriver[] | undefined): RatingDriver[] {
-  return (items ?? []).filter((d) => (d?.headline || d?.detail || "").trim() !== "");
+  // A narrative written before drivers had a headline gave each one as a plain string.
+  // Read as an object it vanished, and the report fell back to the KPI table.
+  return (items ?? [])
+    .map((d) => (typeof d === "string" ? { detail: d as string } : d))
+    .filter((d) => (d?.headline || d?.detail || "").trim() !== "");
 }
 
 function strengthsAndGaps(data: KpiCoverageCategory) {
@@ -128,11 +202,6 @@ type EsgDetailedReportProps = {
   final: EsgFinal;
   companyName: string;
   fy: string;
-  /** The analysis run's per-page scores and reasons (the report editor's
-   * `pages`, read from esg_report). Every scored report has them, including
-   * ones imported from the old calculator, so the rationale does not wait for
-   * a re-run. */
-  pages?: Pages;
   /** The rating narrative written when the report was analysed. Without it the
    * Rating Summary stays the score sentence and the drivers fall back to the
    * KPI lists, so reports analysed before it existed still read. */
@@ -140,14 +209,18 @@ type EsgDetailedReportProps = {
 };
 
 const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(function EsgDetailedReport(
-  { final, companyName, fy, pages, narrative },
+  { final, companyName, fy, narrative },
   ref,
 ) {
   // Saved report edits (company name, sector) carry over, as on the one-page report.
+  // In edit mode an empty block still shows its editor, so an analyst can write text the
+  // AI left out rather than having nothing to click on.
+  const editing = useReportEdit()?.editing ?? false;
   const company = useField("company", companyName);
+  const fyShown = useField("fy", fy);
+  const reportDate = useField("report_date", final.report_date);
   const sector = useField("sector", final.sector);
   const coverage = final.kpi_coverage;
-  const pageRows = final.page_scores ?? [];
   const strengths = driversOf(narrative?.strengths);
   const weaknesses = driversOf(narrative?.weaknesses);
   const grade = final.composite_score_performance;
@@ -155,58 +228,7 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
   const kpiScored = final.scoring_method === KPI_SCORE_METHOD;
   const gradeColor = GRADE_COLORS[grade as Grade] ?? "#c0392b";
 
-  // Scoring Rationale: the run's saved per-page reasons (pages) first, else the
-  // reasons saved on page_scores; each line adds the KPIs that page proves.
-  const kpisOn = (label: (typeof PILLARS)[number]["label"], page: number | string) =>
-    pageRows.find((row) => String(row.page) === String(page))?.[label]?.kpi_names;
-  const rationale = PILLARS.map((p) => {
-    const fromRun: RationaleLine[] = (pages?.[p.cat] ?? [])
-      .filter((r) => r.reason)
-      .map((r) => ({ page: r.page, score: r.score, reason: r.reason, kpis: kpisOn(p.label, r.page) }));
-    const fromRows: RationaleLine[] = pageRows
-      .filter((row) => row[p.label]?.reason)
-      .map((row) => ({
-        page: row.page,
-        score: row[p.label]!.score,
-        reason: row[p.label]!.reason!,
-        kpis: row[p.label]!.kpi_names,
-      }));
-    return { ...p, lines: fromRun.length ? fromRun : fromRows };
-  });
-  // Same markup and styles as the BFSI detailed report's Scoring Rationale: one
-  // collapsible block per pillar. PDFs print them open (lib/pdf.ts).
-  const rationaleSection = rationale.some((p) => p.lines.length) ? (
-    <>
-      <h3>Scoring Rationale</h3>
-      <p style={{ color: "#5c6b82", fontSize: 13, marginTop: 0 }}>
-        Every page of the uploaded report is scored on its own. Each line below cites the page it
-        came from.
-      </p>
-      {rationale.map((p) =>
-        p.lines.length ? (
-          <details key={p.key} className={styles.rationale}>
-            <summary>
-              {p.label} — {p.lines.length} page{p.lines.length === 1 ? "" : "s"} scored
-            </summary>
-            <ul>
-              {p.lines.map((line) => (
-                <li key={String(line.page)}>
-                  <span className={styles.cite}>
-                    p.{line.page}
-                    {line.score !== null && line.score !== undefined ? ` · ${line.score}` : ""}
-                  </span>
-                  {line.reason}
-                  {line.kpis?.length ? (
-                    <span className={extra.kpis}> KPIs: {line.kpis.join("; ")}</span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </details>
-        ) : null,
-      )}
-    </>
-  ) : null;
+
 
   return (
     <div className="overflow-x-auto">
@@ -215,10 +237,21 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
           {/* eslint-disable-next-line @next/next/no-img-element -- html2canvas needs a plain same-origin <img> */}
           <img src={LOGO} alt="ESG Ratings logo" />
           <div>
-            <h2>ESG Detailed Assessment Report</h2>
+            <EditableHeading k="report_title" as="h2">
+              ESG Detailed Assessment Report
+            </EditableHeading>
             <div style={{ color: "#5c6b82", fontSize: 13 }}>
-              {company}
-              {sector ? ` · ${sector}` : ""} · FY {fy} · Report date {final.report_date}
+              <EditableText k="company" label="Company" value={company} />
+              {sector || editing ? (
+                <>
+                  {" · "}
+                  <EditableText k="sector" label="Sector" value={sector} />
+                </>
+              ) : null}
+              {" · FY "}
+              <EditableText k="fy" label="Financial year" value={fyShown} />
+              {" · Report date "}
+              <EditableText k="report_date" label="Report date" value={reportDate} />
             </div>
           </div>
         </div>
@@ -230,7 +263,6 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
               scored before that was added. Re-run the analysis with &ldquo;Use cached result&rdquo;
               unticked to generate them. The page-by-page rationale below is from the saved analysis.
             </p>
-            {rationaleSection}
           </>
         ) : (
           <>
@@ -253,7 +285,7 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
               </div>
             </div>
 
-            <h3>Marks by Pillar</h3>
+            <EditableHeading k="marks_by_pillar">Marks by Pillar</EditableHeading>
             <p className={styles["factor-note"]}>
               Each pillar&apos;s weight is the marks available for it: Environment {weights.environmental},
               Social {weights.social}, Governance {weights.governance}.
@@ -304,7 +336,7 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
               </tbody>
             </table>
 
-            <h3>Rating Summary</h3>
+            <EditableHeading k="rating_summary">Rating Summary</EditableHeading>
             <p>
               {company} has been assessed with an overall ESG score of{" "}
               <b>{formatScore(final.composite_score)}</b> (Grade{" "}
@@ -315,16 +347,36 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
               (Environment {formatScore(final.environmental_score)}, Social{" "}
               {formatScore(final.social_score)}, Governance {formatScore(final.governance_score)}).
             </p>
-            {narrative?.executive_summary ? <p>{narrative.executive_summary}</p> : null}
-            {narrative?.favourable_factors ? (
-              <p>
-                <b>The score favourably factors in</b> {narrative.favourable_factors}
-              </p>
+            {narrative?.executive_summary || editing ? (
+              <Prose
+                k="executive_summary"
+                label="Executive summary"
+                text={narrative?.executive_summary ?? ""}
+              />
             ) : null}
-            {narrative?.constraints ? (
-              <p>
-                <b>The assessment is, however, constrained by</b> {narrative.constraints}
-              </p>
+            {narrative?.favourable_factors || editing ? (
+              <>
+                <p className={extra["prose-lead"]}>
+                  <b>The score favourably factors in</b>
+                </p>
+                <Prose
+                  k="favourable_factors"
+                  label="What the score favourably factors in"
+                  text={narrative?.favourable_factors ?? ""}
+                />
+              </>
+            ) : null}
+            {narrative?.constraints || editing ? (
+              <>
+                <p className={extra["prose-lead"]}>
+                  <b>The assessment is, however, constrained by</b>
+                </p>
+                <Prose
+                  k="constraints"
+                  label="What constrains the assessment"
+                  text={narrative?.constraints ?? ""}
+                />
+              </>
             ) : null}
 
             <PillarSections narrative={narrative} final={final} />
@@ -333,17 +385,21 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
 
             {strengths.length || weaknesses.length ? (
               <>
-                <h3>Key Rating Drivers</h3>
+                <EditableHeading k="key_rating_drivers">Key Rating Drivers</EditableHeading>
                 {strengths.length ? (
                   <>
-                    <h4 className={extra["driver-heading"]}>Strengths</h4>
-                    <Drivers items={strengths} />
+                    <EditableHeading k="strengths_heading" as="h4" className={extra["driver-heading"]}>
+                      Strengths
+                    </EditableHeading>
+                    <Drivers k="strengths" items={strengths} />
                   </>
                 ) : null}
                 {weaknesses.length ? (
                   <>
-                    <h4 className={extra["driver-heading"]}>Weaknesses</h4>
-                    <Drivers items={weaknesses} />
+                    <EditableHeading k="weaknesses_heading" as="h4" className={extra["driver-heading"]}>
+                      Weaknesses
+                    </EditableHeading>
+                    <Drivers k="weaknesses" items={weaknesses} />
                   </>
                 ) : null}
               </>
@@ -385,9 +441,18 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
               </>
             )}
 
-            {rationaleSection}
+            {narrative?.rating_rationale || editing ? (
+              <>
+                <EditableHeading k="scoring_rationale">Scoring Rationale</EditableHeading>
+                <Prose
+                  k="rating_rationale"
+                  label="Scoring rationale"
+                  text={narrative?.rating_rationale ?? ""}
+                />
+              </>
+            ) : null}
 
-            <h3>Score Scale</h3>
+            <EditableHeading k="score_scale">Score Scale</EditableHeading>
             <table className={styles.data}>
               <tbody>
                 <tr>
@@ -405,26 +470,6 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
               </tbody>
             </table>
 
-            <h3>Methodology</h3>
-            <p className={styles["factor-note"]}>
-              {kpiScored ? (
-                <>
-                  Every page of the uploaded report is checked against each pillar&apos;s KPI list,
-                  and each KPI found is scored from 0 to 100. A KPI keeps its best score from any
-                  page and scores 0 when it is not found. Each pillar score is the total of its KPI
-                  scores as a percentage of the maximum.
-                </>
-              ) : (
-                <>
-                  Every page of the uploaded report is checked against each pillar&apos;s KPI list. A
-                  KPI scores 100 when the report proves it strongly, 50 when only partly, and 0 when
-                  it is not found; it keeps its best result from any page. Each pillar score is the
-                  average of its KPIs.
-                </>
-              )}{" "}
-              The overall score weights Environment {weights.environmental}%, Social {weights.social}%
-              and Governance {weights.governance}%.
-            </p>
           </>
         )}
       </div>

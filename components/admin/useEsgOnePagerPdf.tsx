@@ -74,7 +74,6 @@ export function useEsgOnePagerPdf() {
         <EsgReport
           ref={ref}
           final={final}
-          yearScore={job.submission.year_score}
           companyName={job.submission.company_name}
           fy={job.submission.report_year}
         />

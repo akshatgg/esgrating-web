@@ -148,7 +148,7 @@ type DraftProps<T> = Omit<T, "value" | "onChange" | "onFocus" | "onBlur"> & {
   onCommit: (v: string) => void;
 };
 
-function DraftInput({ value, onCommit, ...rest }: DraftProps<InputHTMLAttributes<HTMLInputElement>>) {
+export function DraftInput({ value, onCommit, ...rest }: DraftProps<InputHTMLAttributes<HTMLInputElement>>) {
   const d = useDraftText(value, onCommit);
   return (
     <input

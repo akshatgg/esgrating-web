@@ -157,7 +157,7 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
                   </td>
                   <td className={styles.pages} colSpan={anyReason ? 2 : 1}>
                     {typeof data.analyst_score === "number"
-                      ? `Set by analyst (KPI total ${points(data.score)})`
+                      ? ` `
                       : null}
                   </td>
                 </tr>

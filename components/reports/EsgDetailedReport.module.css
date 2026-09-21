@@ -67,3 +67,26 @@
   line-height: 1.6;
   text-align: justify;
 }
+
+/* The written rating in edit mode: a textarea that keeps the report's own type, so the
+   page does not jump between reading and editing. */
+.prose-input {
+  font: inherit;
+  color: inherit;
+  line-height: 1.6;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 9px;
+  padding: 6px 8px;
+  background: #fffdf5;
+  border: 1px dashed #c9d6ea;
+  border-radius: 4px;
+  resize: vertical;
+}
+.prose-input:focus {
+  outline: 2px solid #2166b8;
+  outline-offset: 1px;
+}
+.prose-lead {
+  margin: 0 0 4px;
+}
