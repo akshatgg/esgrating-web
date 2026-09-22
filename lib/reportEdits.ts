@@ -118,6 +118,10 @@ export type ReportState<E extends Effective = Effective> = {
   heading_keys?: string[];
   field_keys?: string[];
   narrative?: RatingNarrative | null;
+  /** The stored narrative describes scores this report no longer carries -- an analyst
+   * changed one. The page offers to write it again rather than showing prose that
+   * contradicts the numbers beside it. */
+  narrative_stale?: boolean;
 };
 
 export type PreviewResult<E extends Effective = Effective> = {
@@ -189,6 +193,15 @@ export type LogoSlot = "main" | "corner";
 function logoUrl(kind: ReportKind, id: string, slot: LogoSlot) {
   const url = `${base(kind, id)}/logo`;
   return slot === "main" ? url : `${url}?slot=${slot}`;
+}
+
+/** POST …/reports — writes the rating text for the report as it stands, so the detailed
+ * report, the Word summary and the export all describe the same rating. Two AI calls;
+ * asked for rather than paid for on every submission. Returns the GET body. */
+export function generateReports<E extends Effective>(kind: ReportKind, id: string) {
+  return apiFetch<ReportState<E>>(`/api/admin/${kind}/submissions/${id}/reports`, {
+    method: "POST",
+  });
 }
 
 /** POST …/report/logo — stored at once (not part of Save); returns the GET body. */

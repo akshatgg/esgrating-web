@@ -14,13 +14,6 @@ const CATEGORY_ORDER = ["Environment", "Social", "Governance"] as const;
 const CAT: Record<(typeof CATEGORY_ORDER)[number], Cat> = { Environment: "E", Social: "S", Governance: "G" };
 const EDITED_BG = "#fff7e0";
 const LEVEL_LABEL: Record<KpiLevel, string> = { strong: "Strong", partial: "Partial", none: "Not found" };
-const MAX_PAGES = 8;
-
-function pagesText(pages: Array<number | string> | undefined): string {
-  if (!pages || pages.length === 0) return "—";
-  const shown = pages.slice(0, MAX_PAGES).join(", ");
-  return pages.length > MAX_PAGES ? `${shown} +${pages.length - MAX_PAGES} more` : shown;
-}
 
 function points(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
@@ -34,17 +27,16 @@ function points(n: number): string {
 function reasonOf(k: KpiCoverageCategory["kpis"][number]): string {
   const ev = k.evidence;
   if (!ev?.reason) return "";
-  const cite = (page: number | string | undefined, score: number | undefined, reason: string) =>
-    `p.${page ?? "?"}${typeof score === "number" ? ` (${points(score)})` : ""}: ${reason}`;
+  // Page numbers are left out: the column is the reason for the score, and the citations
+  // read as working notes in a client's report (user, 2026-09-22). The capping note stays,
+  // since a score held down to 20 is otherwise unexplained.
   const parts = [
-    k.capped
-      ? `Held at ${points(best(k))} — poor performance on ${cite(ev.page, ev.score, ev.reason)}`
-      : cite(ev.page, ev.score, ev.reason),
+    k.capped ? `Held at ${points(best(k))} — poor performance found: ${ev.reason}` : ev.reason,
   ];
   for (const o of ev.also ?? []) {
-    if (o?.reason) parts.push(`${k.capped && parts.length === 1 ? "Best evidence " : "Also "}${cite(o.page, o.score, o.reason)}`);
+    if (o?.reason) parts.push(`${k.capped && parts.length === 1 ? "Best evidence: " : "Also: "}${o.reason}`);
   }
-  return parts.join(". ") + ".";
+  return parts.map((t) => String(t).replace(/\.*$/, "")).join(". ") + ".";
 }
 
 const scored = (data: KpiCoverageCategory) => data.method === KPI_SCORE_METHOD;
@@ -107,7 +99,6 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
                   <th>KPI</th>
                   <th>{isScored ? "Level" : "Result"}</th>
                   <th className={styles.num}>{isScored ? "Score" : "Points"}</th>
-                  <th>Found on pages</th>
                   {anyReason ? <th>Reason</th> : null}
                 </tr>
               </thead>
@@ -123,7 +114,12 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
                           {LEVEL_LABEL[k.level] ?? k.level}
                         </span>
                       </td>
-                      <td className={styles.num} style={edited ? { background: EDITED_BG } : undefined}>
+                      {/* Highlighted only while editing: a delivered report shows a
+                          revised score like any other (user, 2026-09-21). */}
+                      <td
+                        className={styles.num}
+                        style={edited && editable ? { background: EDITED_BG } : undefined}
+                      >
                         {editable ? (
                           <ScoreInput
                             label={`${cat} KPI ${k.kpi} score (0 to 100)`}
@@ -135,10 +131,6 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
                         ) : (
                           points(best(k))
                         )}
-                      </td>
-                      <td className={styles.pages}>
-                        {pagesText(k.pages)}
-                        {k.capped ? " · capped at 20 (poor performance found)" : null}
                       </td>
                       {anyReason ? (
                         <td className={styles.reason}>{reasonOf(k) || (best(k) > 0 ? "—" : "")}</td>
@@ -155,11 +147,9 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
                   <td className={styles.num}>
                     {typeof data.analyst_score === "number" ? points(data.analyst_score) : points(data.score)}
                   </td>
-                  <td className={styles.pages} colSpan={anyReason ? 2 : 1}>
-                    {typeof data.analyst_score === "number"
-                      ? ` `
-                      : null}
-                  </td>
+                  {/* Nothing about who set the pillar score: this table is part of a
+                      client document. */}
+                  {anyReason ? <td className={styles.pages} /> : null}
                 </tr>
               </tbody>
             </table>

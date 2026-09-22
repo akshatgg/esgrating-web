@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
 import {
   deleteReportLogo,
+  generateReports,
   draftFrom,
   getReport,
   cornerLogoSrcOf,
@@ -63,6 +64,7 @@ export function useReportEditor<E extends Effective>(
   const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [logoBusy, setLogoBusy] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [logoBust, setLogoBust] = useState(0);
@@ -253,6 +255,23 @@ export function useReportEditor<E extends Effective>(
     await onSaved?.();
   }
 
+  /** Write the rating text for the report as it stands. The analysis produces the
+   * scores and the one-pager; this is the step that writes the prose, so it reflects
+   * any score the analyst has changed since (user, 2026-09-21). */
+  async function writeReports() {
+    setError(null);
+    setGenerating(true);
+    try {
+      setReport(await generateReports<E>(kind, id));
+      setAnnouncement("Reports ready.");
+      await onSaved?.();
+    } catch (err) {
+      setError(message(err));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   async function uploadLogo(file: File, slot: LogoSlot = "main") {
     setLogoError(null);
     if (!LOGO_TYPES.includes(file.type)) {
@@ -409,6 +428,12 @@ export function useReportEditor<E extends Effective>(
     saving,
     previewing,
     logoBusy,
+    generating,
+    /** No written rating yet, or the stored one describes scores that have changed. */
+    needsReports: Boolean(report && (!report.narrative || report.narrative_stale)),
+    /** The stored text was written for scores the report no longer carries. */
+    reportsStale: Boolean(report?.narrative_stale),
+    writeReports: () => void writeReports(),
     error,
     announcement,
     /** The effective report to render, or null to render the detail as today. */

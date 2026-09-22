@@ -10,6 +10,7 @@ import {
   Clock,
   Download,
   FileSpreadsheet,
+  FileText,
   Loader2,
   Mail,
   PencilLine,
@@ -323,6 +324,31 @@ export default function EsgSubmissionDetailPage() {
                   className={clsx(CARD, "flex flex-wrap items-center justify-between gap-2 p-3")}
                 >
                   <div className="flex flex-wrap items-center gap-2">
+                    {viewFinal?.kpi_coverage && editor.needsReports ? (
+                      <Button
+                        variant="adminPrimary"
+                        onClick={editor.writeReports}
+                        disabled={editor.generating || editor.dirty}
+                        title={
+                          editor.dirty
+                            ? "Save your changes first, so the reports are written for them"
+                            : editor.reportsStale
+                              ? "The scores changed since these reports were written"
+                              : undefined
+                        }
+                      >
+                        {editor.generating ? (
+                          <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
+                        ) : (
+                          <FileText className="h-4 w-4" aria-hidden="true" />
+                        )}
+                        {editor.generating
+                          ? "Writing…"
+                          : editor.reportsStale
+                            ? "Update detailed, Word & CSV"
+                            : "Generate detailed, Word & CSV"}
+                      </Button>
+                    ) : null}
                     <Button
                       variant="adminPrimary"
                       onClick={handleDownload}
