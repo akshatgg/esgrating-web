@@ -1,6 +1,11 @@
 import { KPI_SCORE_METHOD, type KpiCoverage, type KpiCoverageCategory, type KpiLevel } from "@/lib/types";
 import type { Cat } from "@/lib/reportEdits";
-import { ScoreInput, useReportEdit } from "@/components/reports/edit/ReportEdit";
+import {
+  DraftTextarea,
+  ScoreInput,
+  useField,
+  useReportEdit,
+} from "@/components/reports/edit/ReportEdit";
 import styles from "@/components/reports/KpiAssessment.module.css";
 
 // The report's KPI Assessment: every KPI of every pillar, how well the uploaded
@@ -39,39 +44,79 @@ function reasonOf(k: KpiCoverageCategory["kpis"][number]): string {
   return parts.map((t) => String(t).replace(/\.*$/, "")).join(". ") + ".";
 }
 
+const SCORED_NOTE =
+  "Each KPI is scored from 0 to 100 on how good the performance is, not on how much detail " +
+  "the report gives: 0 when it is only mentioned, promised or too vague to judge, 1\u201320 poor " +
+  "(fines, incidents, a worsening trend), 21\u201340 weak, 41\u201360 real action without results, " +
+  "61\u201380 measured results, 81\u2013100 targets met or independently assured. A KPI keeps its " +
+  "best score from any page \u2014 held down to 20 if any page showed poor performance \u2014 and " +
+  "scores 0 when it is not found. Each pillar score is the average of all its KPI scores, with " +
+  "missing KPIs counted as 0.";
+const PROVEN_NOTE =
+  "Each KPI is rated on how well the uploaded report proves it: Strong = 100, Partial = 50, " +
+  "Not found = 0. A KPI takes its best result from any page, and each pillar score is the " +
+  "average of its KPIs.";
+
 const scored = (data: KpiCoverageCategory) => data.method === KPI_SCORE_METHOD;
 
 /** A KPI's best score, 0–100 (older results carry it as points). */
 const best = (k: KpiCoverageCategory["kpis"][number]) => k.score ?? k.points;
 
 export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
+  // Every hook first: the early return below must not change how many run.
   const ctx = useReportEdit();
+  const noteOverride = useField<string>("kpi_assessment_note", "");
+  // Reasons an analyst has corrected, by pillar and KPI name. The report already carries
+  // the corrected text (the API writes it onto the KPI row), so this is only the draft
+  // while editing.
+  const reasonEdits = useField<Record<string, Record<string, string>>>("kpi_reasons", {});
+
   const categories = CATEGORY_ORDER.filter((c) => (coverage[c]?.kpis?.length ?? 0) > 0);
   if (categories.length === 0) return null;
   const anyScored = categories.some((c) => scored(coverage[c]!));
+  const editing = ctx?.editing ?? false;
+  const reasonFor = (code: Cat, k: KpiCoverageCategory["kpis"][number]) =>
+    reasonEdits[code]?.[k.kpi] ?? reasonOf(k);
+  // The editor starts from whatever is showing, so an analyst rewords the real note
+  // rather than an empty box.
+  const noteText = noteOverride || (anyScored ? SCORED_NOTE : PROVEN_NOTE);
 
   return (
     <section className={styles.section}>
       <h2 className={styles.title}>KPI Assessment</h2>
-      <p className={styles.note}>
-        {anyScored ? (
-          <>
-            Each KPI is scored from 0 to 100 on how good the performance is, not on how much detail
-            the report gives: 0 when it is only mentioned, promised or too vague to judge, 1–20 poor
-            (fines, incidents, a worsening trend), 21–40 weak, 41–60 real action without results,
-            61–80 measured results, 81–100 targets met or independently assured. A KPI keeps its best
-            score from any page — held down to 20 if any page showed poor performance — and scores 0
-            when it is not found. Each pillar score is the average of all its KPI scores, with
-            missing KPIs counted as 0.
-          </>
-        ) : (
-          <>
-            Each KPI is rated on how well the uploaded report proves it: Strong = 100, Partial = 50,
-            Not found = 0. A KPI takes its best result from any page, and each pillar score is the
-            average of its KPIs.
-          </>
-        )}
-      </p>
+      {/* The note is the method, so it is the same on every report -- but an analyst can
+          reword it for one (user, 2026-09-23). */}
+      {editing ? (
+        <DraftTextarea
+          className={styles.noteInput}
+          aria-label="KPI Assessment note"
+          rows={5}
+          value={noteText}
+          onCommit={(v) => ctx?.setField?.("kpi_assessment_note", v)}
+        />
+      ) : noteOverride ? (
+        <p className={styles.note}>{noteOverride}</p>
+      ) : (
+        <p className={styles.note}>
+          {anyScored ? (
+            <>
+              Each KPI is scored from 0 to 100 on how good the performance is, not on how much detail
+              the report gives: 0 when it is only mentioned, promised or too vague to judge, 1–20 poor
+              (fines, incidents, a worsening trend), 21–40 weak, 41–60 real action without results,
+              61–80 measured results, 81–100 targets met or independently assured. A KPI keeps its best
+              score from any page — held down to 20 if any page showed poor performance — and scores 0
+              when it is not found. Each pillar score is the average of all its KPI scores, with
+              missing KPIs counted as 0.
+            </>
+          ) : (
+            <>
+              Each KPI is rated on how well the uploaded report proves it: Strong = 100, Partial = 50,
+              Not found = 0. A KPI takes its best result from any page, and each pillar score is the
+              average of its KPIs.
+            </>
+          )}
+        </p>
+      )}
       {categories.map((cat) => {
         const data = coverage[cat]!;
         const isScored = scored(data);
@@ -133,7 +178,24 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
                         )}
                       </td>
                       {anyReason ? (
-                        <td className={styles.reason}>{reasonOf(k) || (best(k) > 0 ? "—" : "")}</td>
+                        <td className={styles.reason}>
+                          {editing ? (
+                            <DraftTextarea
+                              className={styles.noteInput}
+                              aria-label={`${k.kpi} reason`}
+                              rows={3}
+                              value={reasonFor(code, k)}
+                              onCommit={(v) =>
+                                ctx?.setField?.("kpi_reasons", {
+                                  ...reasonEdits,
+                                  [code]: { ...(reasonEdits[code] ?? {}), [k.kpi]: v },
+                                })
+                              }
+                            />
+                          ) : (
+                            reasonFor(code, k) || (best(k) > 0 ? "—" : "")
+                          )}
+                        </td>
                       ) : null}
                     </tr>
                   );
