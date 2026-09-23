@@ -52,7 +52,15 @@ export default function AiBillingCard() {
       setSaving(value);
       setError(null);
       try {
-        setState(await apiFetch<State>(PATH, { method: "PUT", body: JSON.stringify({ provider: value }) }));
+        setState(
+          await apiFetch<State>(PATH, {
+            method: "PUT",
+            // Without this the browser sends text/plain and FastAPI cannot read the body,
+            // which comes back as "Field required".
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ provider: value }),
+          }),
+        );
       } catch (e: unknown) {
         setError(e instanceof ApiError ? e.message : "Could not save.");
       } finally {
