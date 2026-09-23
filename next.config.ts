@@ -80,7 +80,15 @@ const nextConfig: NextConfig = {
       ...blogSlugs.map((s) => ({ source: `/${s}`, destination: `/blogs/${s}`, permanent: true })),
     ];
   },
-  experimental: { proxyTimeout: 120_000 },
+  experimental: {
+    proxyTimeout: 120_000,
+    // Dev only, but it has to be here: in dev the /api rewrite above proxies uploads
+    // through Next, which truncates a request body at 10MB and then never completes it --
+    // a 10.1MB report left the New Assessment button spinning with nothing in the API log.
+    // The form accepts 20MB, so this sits above it with room for multipart overhead.
+    // Production never hits this: Caddy sends /api/* straight to FastAPI (deploy/Caddyfile).
+    proxyClientMaxBodySize: "30mb",
+  },
 };
 
 export default nextConfig;
