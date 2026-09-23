@@ -105,6 +105,10 @@ export type EsgFinal = {
   social_score_performance: Grade;
   governance_score_performance: Grade;
   composite_score_performance: Grade;
+  /** The marks available to each pillar, when an analyst set them on this report
+   * (esgratings-api app/esg/scoring.py weights_for). Absent on reports that use the
+   * method's own weights. */
+  weights?: { Environment: number; Social: number; Governance: number };
   environmental_score_performance_label: string;
   social_score_performance_label: string;
   governance_score_performance_label: string;

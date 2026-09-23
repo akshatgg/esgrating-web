@@ -90,3 +90,9 @@
 .prose-lead {
   margin: 0 0 4px;
 }
+
+/* The weight total when the three marks no longer add to 100 — shown, not corrected. */
+.weight-off {
+  color: #c0392b;
+  font-weight: 700;
+}

@@ -7,6 +7,7 @@ import Doughnut from "@/components/reports/Doughnut";
 import KpiAssessment from "@/components/reports/KpiAssessment";
 import {
   DraftInput,
+  ScoreInput,
   DraftTextarea,
   EditableHeading,
   EditableText,
@@ -34,6 +35,17 @@ const PILLARS = [
 /** The overall score's weights (esgratings-api app/esg/scoring.py): KPI-scored
  * reports 35/30/35, older reports 30/30/40. */
 function weightsOf(final: EsgFinal): Record<(typeof PILLARS)[number]["key"], number> {
+  // Marks an analyst set on this report win. The API stores them under the pillar names
+  // (esgratings-api app/esg/scoring.py weights_for), which is also what the overall
+  // score, the CSV and the Word summary read.
+  const set = final.weights;
+  if (set) {
+    return {
+      environmental: set.Environment,
+      social: set.Social,
+      governance: set.Governance,
+    };
+  }
   return final.scoring_method === KPI_SCORE_METHOD
     ? { environmental: 35, social: 30, governance: 35 }
     : { environmental: 30, social: 30, governance: 40 };
@@ -215,7 +227,8 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
   // Saved report edits (company name, sector) carry over, as on the one-page report.
   // In edit mode an empty block still shows its editor, so an analyst can write text the
   // AI left out rather than having nothing to click on.
-  const editing = useReportEdit()?.editing ?? false;
+  const ctx = useReportEdit();
+  const editing = ctx?.editing ?? false;
   const company = useField("company", companyName);
   const fyShown = useField("fy", fy);
   const reportDate = useField("report_date", final.report_date);
@@ -225,6 +238,17 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
   const weaknesses = driversOf(narrative?.weaknesses);
   const grade = final.composite_score_performance;
   const weights = weightsOf(final);
+  const weightTotal = weights.environmental + weights.social + weights.governance;
+  // The sentence the scores produce. It is what the editor starts from, so an analyst
+  // edits the current wording rather than a blank box.
+  const generatedSummary =
+    `${company} has been assessed with an overall ESG score of ` +
+    `${formatScore(final.composite_score)} (Grade ${grade} — ` +
+    `${final.composite_score_performance_label}), based on how well its uploaded report ` +
+    `proves the ESG KPIs of each pillar (Environment ${formatScore(final.environmental_score)}, ` +
+    `Social ${formatScore(final.social_score)}, Governance ${formatScore(final.governance_score)}).`;
+  const summarySentence = useField<string>("rating_summary_text", "");
+  const summarySentenceText = summarySentence || generatedSummary;
   const kpiScored = final.scoring_method === KPI_SCORE_METHOD;
   const gradeColor = GRADE_COLORS[grade as Grade] ?? "#c0392b";
 
@@ -286,10 +310,6 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
             </div>
 
             <EditableHeading k="marks_by_pillar">Marks by Pillar</EditableHeading>
-            <p className={styles["factor-note"]}>
-              Each pillar&apos;s weight is the marks available for it: Environment {weights.environmental},
-              Social {weights.social}, Governance {weights.governance}.
-            </p>
             <table className={styles.data}>
               <tbody>
                 <tr>
@@ -308,7 +328,23 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
                         <b>{p.label}</b>
                       </td>
                       <td>{formatScore(score)}</td>
-                      <td>{weights[p.key]}</td>
+                      <td>
+                        {editing && ctx?.setField ? (
+                          <ScoreInput
+                            label={`${p.label} weight (marks available)`}
+                            value={weights[p.key]}
+                            onCommit={(v) =>
+                              ctx.setField?.("weights", {
+                                E: p.key === "environmental" ? (v ?? 0) : weights.environmental,
+                                S: p.key === "social" ? (v ?? 0) : weights.social,
+                                G: p.key === "governance" ? (v ?? 0) : weights.governance,
+                              })
+                            }
+                          />
+                        ) : (
+                          weights[p.key]
+                        )}
+                      </td>
                       <td>
                         <b>{numberFormat((weights[p.key] * score) / 100, 2)}</b>
                       </td>
@@ -323,7 +359,11 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
                     <b>Total</b>
                   </td>
                   <td />
-                  <td>100</td>
+                  {/* The marks actually allotted, not a fixed 100: an analyst who changes a
+                      weight sees at once whether the three still add up. */}
+                  <td className={weightTotal === 100 ? undefined : extra["weight-off"]}>
+                    {numberFormat(weightTotal, 2)}
+                  </td>
                   <td>
                     <b>{formatScore(final.composite_score)}</b>
                   </td>
@@ -335,18 +375,37 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
                 </tr>
               </tbody>
             </table>
+            <p className={styles["factor-note"]}>
+              Each pillar&apos;s weight is the marks available for it: Environment{" "}
+              {weights.environmental}, Social {weights.social}, Governance {weights.governance}.
+            </p>
 
             <EditableHeading k="rating_summary">Rating Summary</EditableHeading>
-            <p>
-              {company} has been assessed with an overall ESG score of{" "}
-              <b>{formatScore(final.composite_score)}</b> (Grade{" "}
-              <b>
-                {grade} — {final.composite_score_performance_label}
-              </b>
-              ), based on how well its uploaded report proves the ESG KPIs of each pillar
-              (Environment {formatScore(final.environmental_score)}, Social{" "}
-              {formatScore(final.social_score)}, Governance {formatScore(final.governance_score)}).
-            </p>
+            {/* Written from the scores, so it follows an edited pillar score or weight on
+                its own. Replaced by the analyst's own wording once they write one; clearing
+                that goes back to following the scores (user, 2026-09-23). */}
+            {editing ? (
+              <DraftTextarea
+                className={extra["prose-input"]}
+                aria-label="Rating summary"
+                rows={3}
+                value={summarySentenceText}
+                onCommit={(v) => ctx?.setField?.("rating_summary_text", v)}
+              />
+            ) : summarySentence ? (
+              <p>{summarySentence}</p>
+            ) : (
+              <p>
+                {company} has been assessed with an overall ESG score of{" "}
+                <b>{formatScore(final.composite_score)}</b> (Grade{" "}
+                <b>
+                  {grade} — {final.composite_score_performance_label}
+                </b>
+                ), based on how well its uploaded report proves the ESG KPIs of each pillar
+                (Environment {formatScore(final.environmental_score)}, Social{" "}
+                {formatScore(final.social_score)}, Governance {formatScore(final.governance_score)}).
+              </p>
+            )}
             {narrative?.executive_summary || editing ? (
               <Prose
                 k="executive_summary"
