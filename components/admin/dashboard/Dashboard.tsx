@@ -46,6 +46,7 @@ import { RATED_COMPANIES_HREF } from "@/lib/admin-nav";
 import Sparkline from "./Sparkline";
 import SubmissionsChart, { BFSI_COLOR, ESG_COLOR } from "./SubmissionsChart";
 import PipelineDonut, { type Segment } from "./PipelineDonut";
+import AiBillingCard from "./AiBillingCard";
 
 // The superadmin Dashboard (docs/sdd/web-task-admin-redesign-brief.md
 // "Dashboard page"), modelled on the Mark AI CMS dashboard: stat cards, a
@@ -192,6 +193,8 @@ function DashboardBody({ stats }: { stats: AdminStats }) {
       </div>
 
       <AttentionCard items={stats.attention} now={now} />
+
+      <AiBillingCard />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <RecentSubmissionsCard kind="esg" items={stats.recent.esg} />
