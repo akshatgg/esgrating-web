@@ -144,22 +144,33 @@ function PillarSections({
   );
 }
 
+/** How long a driver has to be before it is set as prose rather than a bullet. A one-line
+ * strength is a restated KPI name and reads as a list; a written assessment is a
+ * paragraph, and a paragraph in a bullet reads badly in a client document
+ * (user, 2026-09-24). */
+const PROSE_FROM = 200;
+
 /** A rating driver: its headline in bold, then the paragraph of evidence.
  * Written by the AI from the scored KPIs (esgratings-api app/reports/summary.py). */
 function Drivers({ k, items }: { k: "strengths" | "weaknesses"; items: RatingDriver[] }) {
   const ctx = useReportEdit();
   const editing = ctx?.editing ?? false;
+  // Written assessments are paragraphs; short ones stay the bullet list they have always
+  // been, so a report issued before this still renders the way it was given to the client.
+  const prose = items.some((d) => (d?.detail ?? "").length >= PROSE_FROM);
   const write = (i: number, part: "headline" | "detail", value: string) =>
     ctx?.setField?.(
       k,
       items.map((d, j) => (j === i ? { headline: d.headline ?? "", detail: d.detail ?? "", [part]: value } : d)),
     );
+  const List = prose && !editing ? "div" : "ul";
+  const Item = prose && !editing ? "div" : "li";
   return (
-    <ul className={extra.drivers}>
+    <List className={prose && !editing ? extra["driver-prose"] : extra.drivers}>
       {items.map((d, i) => (
         // Keyed by position: a key that changed as the headline is typed would remount
         // the field and lose focus.
-        <li key={i}>
+        <Item key={i} className={prose && !editing ? extra["driver-para"] : undefined}>
           {editing ? (
             <>
               <DraftInput
@@ -183,9 +194,9 @@ function Drivers({ k, items }: { k: "strengths" | "weaknesses"; items: RatingDri
               {d.detail}
             </>
           )}
-        </li>
+        </Item>
       ))}
-    </ul>
+    </List>
   );
 }
 

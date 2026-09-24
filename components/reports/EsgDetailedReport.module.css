@@ -34,6 +34,18 @@
   text-align: justify;
 }
 
+/* A strength or weakness written as a full assessment rather than a line. A paragraph of
+   200 words reads badly as a bullet in a client document, so the list becomes prose
+   (components/reports/EsgDetailedReport.tsx PROSE_FROM). */
+.driver-prose {
+  margin: 0 0 12px;
+}
+.driver-para {
+  margin: 0 0 11px;
+  line-height: 1.6;
+  text-align: justify;
+}
+
 /* Each pillar's written assessment: a banner with the pillar and the score it earned,
    then the paragraphs. Mirrors how a rating rationale is laid out. */
 .pillar-section {
