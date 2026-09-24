@@ -46,15 +46,18 @@ import {
 import { CARD } from "@/components/admin/styles";
 import EsgReport, { ESG_REPORT_PDF_FILENAME } from "@/components/reports/EsgReport";
 import EsgDetailedReport from "@/components/reports/EsgDetailedReport";
+import EsgSummaryReport from "@/components/reports/EsgSummaryReport";
 import { ReportEditProvider } from "@/components/reports/edit/ReportEdit";
 import PageScoresTables from "@/components/reports/edit/PageScoresPanel";
 
 const PDF_FILENAME = ESG_REPORT_PDF_FILENAME;
 
-/** The one-page ESG Rating Report and the Detailed Report, side by side as tabs. */
+/** The one-page ESG Rating Report, the Detailed Report and the Rating Summary -- the
+ *  client's Word template on screen -- side by side as tabs. */
 const REPORT_TABS = [
   ["rating", "ESG Rating Report"],
   ["detailed", "Detailed Report"],
+  ["summary", "Summary Report"],
 ] as const;
 
 const LIST_CRUMBS = [
@@ -230,6 +233,7 @@ export default function EsgSubmissionDetailPage() {
   // Both tabs can be edited: pillar scores and text on the one-page report, KPI scores in
   // the Detailed Report's KPI Assessment. Every edit previews in both.
   const detailedView = tab === "detailed";
+  const summaryView = tab === "summary";
   // The effective (edited / previewed) report when there is one, else the
   // stored `final` exactly as before.
   const viewFinal = editor.liveEffective?.final ?? final;
@@ -460,15 +464,30 @@ export default function EsgSubmissionDetailPage() {
                 <ReportPreview
                   caption={
                     editing
-                      ? detailedView
-                        ? "Change a KPI score to recompute its pillar, the overall score and grades in every report. Save to keep it."
-                        : "Edits preview live in both reports. Save to use them in the PDFs, the summary and the emailed copy."
-                      : detailedView
-                        ? "The full KPI and page-by-page working behind the rating. Downloads as its own PDF."
-                        : "The PDF and the emailed copy match this sheet."
+                      ? summaryView
+                        ? "Every heading, paragraph and cell here can be reworded. Save, and Download summary (Word) carries exactly this."
+                        : detailedView
+                          ? "Change a KPI score to recompute its pillar, the overall score and grades in every report. Save to keep it."
+                          : "Edits preview live in both reports. Save to use them in the PDFs, the summary and the emailed copy."
+                      : summaryView
+                        ? "The Rating Summary as it downloads. Scores are corrected on the Detailed Report, so the two can never disagree."
+                        : detailedView
+                          ? "The full KPI and page-by-page working behind the rating. Downloads as its own PDF."
+                          : "The PDF and the emailed copy match this sheet."
                   }
                 >
-                  {detailedView ? (
+                  {summaryView ? (
+                    editor.report?.summary ? (
+                      <EsgSummaryReport
+                        facts={editor.report.summary}
+                        narrative={editor.report?.narrative}
+                      />
+                    ) : (
+                      <p className="p-6 text-[13px] text-muted">
+                        The Rating Summary needs a scored report. Run the analysis first.
+                      </p>
+                    )
+                  ) : detailedView ? (
                     <EsgDetailedReport
                       ref={detailedRef}
                       final={viewFinal}

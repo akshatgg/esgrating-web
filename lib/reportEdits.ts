@@ -106,6 +106,8 @@ export type RatingNarrative = {
 };
 
 /** GET …/report and PUT …/report/edits. */
+import type { SummaryFacts } from "@/components/reports/EsgSummaryReport";
+
 export type ReportState<E extends Effective = Effective> = {
   effective: E;
   original?: E;
@@ -122,6 +124,10 @@ export type ReportState<E extends Effective = Effective> = {
    * changed one. The page offers to write it again rather than showing prose that
    * contradicts the numbers beside it. */
   narrative_stale?: boolean;
+  /** The Rating Summary's own facts: the same ones the Word file is built from
+   * (esgratings-api app/reports/summary.py build_facts), so the Summary Report tab shows
+   * exactly what downloads. Null when the report has no KPI coverage to build it from. */
+  summary?: SummaryFacts | null;
 };
 
 export type PreviewResult<E extends Effective = Effective> = {

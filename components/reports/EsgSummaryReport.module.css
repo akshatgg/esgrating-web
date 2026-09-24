@@ -1,0 +1,162 @@
+/* The Rating Summary on screen: the client's Word template
+   (esgratings-api app/reports/templates/rating_summary_template.docx) laid out as the
+   page, so what an analyst reads and corrects is what downloads. Sized like the Word
+   file rather than the rest of the admin, because the two are the same document. */
+
+.doc {
+  background: #fff;
+  color: #1b2534;
+  font-size: 12px;
+  line-height: 1.55;
+  padding: 28px 30px 34px;
+}
+
+.head {
+  border-bottom: 2px solid #1f3864;
+  padding-bottom: 10px;
+  margin-bottom: 18px;
+}
+.h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1f3864;
+}
+.sub {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #5b6472;
+}
+
+.section {
+  margin-top: 26px;
+}
+.h2 {
+  margin: 0 0 4px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #c9d3e4;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f3864;
+}
+.h3 {
+  margin: 16px 0 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #2c3e5d;
+}
+.note {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: #5b6472;
+}
+.para {
+  margin: 0 0 8px;
+  text-align: justify;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 4px;
+  font-size: 11px;
+  /* Long evidence text must wrap rather than force the table wide: the Word file cannot
+     scroll, and a table that overflows there is the clipping this page exists to show. */
+  table-layout: fixed;
+}
+.table th,
+.table td {
+  border: 1px solid #d5dce8;
+  padding: 5px 7px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+.table thead th {
+  background: #1f3864;
+  color: #fff;
+  font-weight: 600;
+}
+.table tbody th {
+  background: #eef2f8;
+  font-weight: 600;
+  width: 16%;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 12px 0;
+}
+.tile {
+  border: 1px solid #d5dce8;
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tileOverall {
+  background: #eef2f8;
+}
+.tileName {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: #5b6472;
+}
+.tileScore {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f3864;
+}
+.tileGrade {
+  font-size: 11px;
+  color: #2c3e5d;
+}
+
+.box {
+  border: 1px solid #d5dce8;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 10px 0;
+  background: #fbfcfe;
+}
+.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.ol {
+  margin: 0;
+  padding-left: 18px;
+}
+.ol li {
+  margin-bottom: 8px;
+  text-align: justify;
+}
+
+/* An editable slot: a table cell or a fixed paragraph the analyst is rewriting. */
+.slot {
+  width: 100%;
+  border: 1px dashed #b9c4d6;
+  border-radius: 4px;
+  background: #fffdf5;
+  padding: 4px 6px;
+  font: inherit;
+  color: inherit;
+  resize: vertical;
+}
+
+@media (max-width: 760px) {
+  .tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .two {
+    grid-template-columns: 1fr;
+  }
+  .doc {
+    padding: 18px 14px 24px;
+  }
+}
