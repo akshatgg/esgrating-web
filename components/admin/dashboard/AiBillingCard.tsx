@@ -13,6 +13,7 @@ import { CARD, FOCUS_RING } from "@/components/admin/styles";
 // setting is read on every scoring call, so a change here applies to the next analysis.
 
 type Option = { value: string; label: string };
+type BedrockModel = { id: string; name: string; provider: string };
 type State = {
   provider: string;
   effective: string;
@@ -20,9 +21,13 @@ type State = {
   default: string;
   aws_available: boolean;
   options: Option[];
+  bedrock_model: string;
+  bedrock_models: BedrockModel[];
 };
 
 const PATH = "/api/admin/settings/llm-provider";
+const MODEL_PATH = "/api/admin/settings/bedrock-model";
+const JSON_HEADERS = { "Content-Type": "application/json" };
 
 const ICON: Record<string, typeof Cloud> = { aws: Cloud, openai: KeyRound };
 
@@ -57,7 +62,7 @@ export default function AiBillingCard() {
             method: "PUT",
             // Without this the browser sends text/plain and FastAPI cannot read the body,
             // which comes back as "Field required".
-            headers: { "Content-Type": "application/json" },
+            headers: JSON_HEADERS,
             body: JSON.stringify({ provider: value }),
           }),
         );
@@ -68,6 +73,28 @@ export default function AiBillingCard() {
       }
     },
     [state, saving],
+  );
+
+  const chooseModel = useCallback(
+    async (id: string) => {
+      if (!state || id === state.bedrock_model) return;
+      setSaving(id);
+      setError(null);
+      try {
+        setState(
+          await apiFetch<State>(MODEL_PATH, {
+            method: "PUT",
+            headers: JSON_HEADERS,
+            body: JSON.stringify({ model: id }),
+          }),
+        );
+      } catch (e: unknown) {
+        setError(e instanceof ApiError ? e.message : "Could not save.");
+      } finally {
+        setSaving(null);
+      }
+    },
+    [state],
   );
 
   return (
@@ -123,6 +150,40 @@ export default function AiBillingCard() {
           </>
         ) : null}
       </div>
+
+      {/* Only what this AWS account may actually invoke is listed: a model is in
+          Bedrock's catalogue whether or not its agreement has been accepted, and picking
+          an unaccepted one would fail on every page of the next report. */}
+      {state?.provider === "aws" ? (
+        <label className="mt-4 block">
+          <span className="text-xs font-medium text-muted">Bedrock model</span>
+          <select
+            className={clsx(
+              "mt-1 w-full rounded-lg border border-border bg-white p-2 text-[13px]",
+              FOCUS_RING,
+            )}
+            value={state.bedrock_model}
+            disabled={Boolean(saving) || state.bedrock_models.length === 0}
+            onChange={(e) => chooseModel(e.target.value)}
+          >
+            {state.bedrock_models.length === 0 ? (
+              <option value="">No models available to this AWS account</option>
+            ) : null}
+            {state.bedrock_models.some((m) => m.id === state.bedrock_model) ? null : (
+              <option value={state.bedrock_model}>{state.bedrock_model} (not available)</option>
+            )}
+            {state.bedrock_models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.provider} — {m.name}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs text-muted">
+            Only models this AWS account can invoke are listed. Accepting a new model&rsquo;s
+            agreement in AWS adds it here.
+          </span>
+        </label>
+      ) : null}
 
       {/* The server decides what is actually used: an admin can pick AWS on a deployment
           that has no AWS credentials, and the API falls back rather than failing every
