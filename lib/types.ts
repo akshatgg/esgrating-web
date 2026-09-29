@@ -124,6 +124,17 @@ export type EsgFinal = {
    * (user, 2026-09-29). Absent on reports analysed before this existed, and on pages with no
    * readable folio -- those are named as sheets rather than passed off as page numbers. */
   page_numbers?: Record<string, number>;
+  /** The company's official stock-exchange listing, looked up and verified at analysis time
+   * (esgratings-api app/esg/sector.py). `sector` above is this listing's sector when there
+   * is one. Absent when nothing could be verified -- the analyst fills it in instead. */
+  exchange_listing?: {
+    company_name?: string;
+    stock_exchange?: string;
+    ticker?: string;
+    sector?: string;
+    source?: string;
+    verification_date?: string;
+  };
 };
 
 export type AnalysisStatus = "idle" | "running" | "done" | "failed";

@@ -45,6 +45,12 @@ const EsgReport = forwardRef<HTMLDivElement, EsgReportProps>(function EsgReport(
   const edit = useReportEdit();
   const company = useField("company", companyName);
   const sector = useField("sector", final.sector);
+  // The verified listing the sector was read from (esgratings-api app/esg/sector.py).
+  // Editable like the sector: where nothing could be verified the analyst fills all three,
+  // and a listing that has changed can be corrected without a re-run.
+  const listing = final.exchange_listing;
+  const exchange = useField("stock_exchange", listing?.stock_exchange ?? "");
+  const ticker = useField("ticker", listing?.ticker ?? "");
   const fyOverride = useField<string | null>("fy", null);
   const fyShown = fyOverride ?? fy;
   const reportDate = useField("report_date", final.report_date);
@@ -61,6 +67,10 @@ const EsgReport = forwardRef<HTMLDivElement, EsgReportProps>(function EsgReport(
       ref={ref}
       header={{
         company: <EditableText k="company" label="Company" value={company} />,
+        exchange: exchange ? (
+          <EditableText k="stock_exchange" label="Stock exchange" value={exchange} />
+        ) : null,
+        ticker: ticker ? <EditableText k="ticker" label="Ticker" value={ticker} /> : null,
         sector: <EditableText k="sector" label="Sector" value={sector} />,
         fy: <EditableText k="fy" label="Financial year" value={fyShown} />,
         reportDate: <EditableText k="report_date" label="Report date" value={reportDate} />,
