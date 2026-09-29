@@ -24,6 +24,7 @@ import {
 } from "@/components/reports/edit/ReportEdit";
 import PageScoresTables from "@/components/reports/edit/PageScoresPanel";
 import KpiAssessment from "@/components/reports/KpiAssessment";
+import { cite } from "@/lib/pageNumbers";
 import styles from "@/components/reports/BfsiDetailedReport.module.css";
 
 /** report.php / one_pager.php load the logo from
@@ -354,7 +355,9 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
         </table>
 
         {/* 6b. KPI Assessment: every KPI, how well the report proves it, and where */}
-        {ai.kpi_coverage ? <KpiAssessment coverage={ai.kpi_coverage} /> : null}
+        {ai.kpi_coverage ? (
+          <KpiAssessment coverage={ai.kpi_coverage} pageNumbers={ai.page_numbers} />
+        ) : null}
 
         {/* 7. Scoring Rationale (edit mode: the editable page-scores table) */}
         {editing ? (
@@ -387,7 +390,7 @@ const BfsiDetailedReport = forwardRef<HTMLDivElement, BfsiDetailedReportProps>(
                       isReason(r) ? (
                         <li key={i}>
                           <span className={styles.cite}>
-                            p.{Math.trunc(Number(r.page ?? 0)) || 0}
+                            {cite(Math.trunc(Number(r.page ?? 0)) || 0, ai.page_numbers)}
                             {r.score !== null && r.score !== undefined
                               ? ` · ${phpFloat(Number(r.score))}`
                               : ""}

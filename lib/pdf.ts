@@ -65,6 +65,46 @@ function fittedScale(el: HTMLElement, opts: PdfOpts): number {
   return Math.floor(Math.min(wanted, bySide, byArea) * 100) / 100;
 }
 
+
+// --- Page numbers -----------------------------------------------------------
+//
+// "Page 3 of 11" at the foot of every page, stamped AFTER the document has been
+// paginated. Nothing here counts pages in advance: the number comes from the
+// finished jsPDF document, so it cannot drift from what the reader is holding --
+// which is the whole point, given that citing a number we worked out ourselves is
+// what sent every page reference two pages wide (user, 2026-09-29).
+//
+// The band below is reserved out of the page before the content is laid into it,
+// so the number never sits on top of the report.
+
+/** Height reserved at the foot of each page for the number, in page units. */
+const FOOTER_BAND = 30;
+const FOOTER_SIZE = 11;
+
+/** True once the document has more than one page: numbering a single sheet says
+ * nothing, and the one-pagers are deliberately one sheet. */
+function stampPageNumbers(doc: JsPdfDoc, pageWidth: number, pageHeight: number): void {
+  const total = doc.internal.getNumberOfPages();
+  if (total < 2) return;
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    doc.setFontSize(FOOTER_SIZE);
+    doc.setTextColor(122, 132, 148);
+    doc.text(`Page ${i} of ${total}`, pageWidth / 2, pageHeight - FOOTER_BAND / 2.5, {
+      align: "center",
+    });
+  }
+}
+
+type JsPdfDoc = {
+  internal: { getNumberOfPages: () => number };
+  setPage: (n: number) => void;
+  setFontSize: (n: number) => void;
+  setTextColor: (r: number, g: number, b: number) => void;
+  text: (t: string, x: number, y: number, o?: { align?: string }) => void;
+};
+
+
 /** The sheet as a ONE-page jsPDF document.
  *
  * html2pdf is not asked to paginate at all here. Computing a page height for it and
@@ -205,14 +245,17 @@ async function bandedDoc(el: HTMLElement, opts: PdfOpts) {
   const scale = Number(h2c.scale ?? 2) || 1;
   const [pageWidth, pageHeight] = pageSize(opts);
   const { width, height } = sheetSize(el);
+  // The page number's band is taken out of the page first, so the content is laid into
+  // what is left and the number never lands on top of the report.
+  const contentHeight = pageHeight - FOOTER_BAND;
   // Pages end on a block boundary, so one is never cut through a heading or a banner.
-  const cuts = pageCuts(height, pageHeight, unbreakableRanges(el, pageHeight));
+  const cuts = pageCuts(height, contentHeight, unbreakableRanges(el, contentHeight));
   const pages = cuts.length - 1;
 
   const doc = new jsPDF({ unit: "px", format: [pageWidth, pageHeight], orientation: "portrait" });
   const page = document.createElement("canvas");
   page.width = Math.round(pageWidth * scale);
-  page.height = Math.round(pageHeight * scale);
+  page.height = Math.round(contentHeight * scale);
   const ctx = page.getContext("2d");
   if (!ctx) throw new Error("canvas unavailable");
 
@@ -243,9 +286,37 @@ async function bandedDoc(el: HTMLElement, opts: PdfOpts) {
       // Drawn at the top: a page cut short to keep a block whole leaves white below it.
       ctx.drawImage(band, 0, sourceTop, band.width, sourceHeight,
                     0, 0, page.width, sourceHeight * fit);
-      doc.addImage(page.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, pageWidth, pageHeight);
+      doc.addImage(page.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, pageWidth, contentHeight);
     }
   }
+  stampPageNumbers(doc as unknown as JsPdfDoc, pageWidth, pageHeight);
+  return doc;
+}
+
+/** The html2pdf path (a report short enough for one canvas). html2pdf lays the content out
+ * itself and fills the page, so the band cannot be reserved in advance the way bandedDoc
+ * does; the number is written over a white strip at the foot instead. Multi-page only, so a
+ * short report that fits one page is untouched. */
+async function html2pdfDoc(el: HTMLElement, opts: PdfOpts) {
+  const html2pdf = (await import("html2pdf.js")).default;
+  const worker = html2pdf().set(opts).from(el).toPdf();
+  const doc = (await worker.get("pdf")) as {
+    output: (type: "blob") => Blob;
+    save: (filename?: string) => void;
+  };
+  const [pageWidth, pageHeight] = pageSize(opts);
+  const d = doc as unknown as JsPdfDoc & {
+    setFillColor: (r: number, g: number, b: number) => void;
+    rect: (x: number, y: number, w: number, h: number, style: string) => void;
+  };
+  if (d.internal.getNumberOfPages() > 1) {
+    for (let i = 1; i <= d.internal.getNumberOfPages(); i++) {
+      d.setPage(i);
+      d.setFillColor(255, 255, 255);
+      d.rect(0, pageHeight - FOOTER_BAND, pageWidth, FOOTER_BAND, "F");
+    }
+  }
+  stampPageNumbers(d, pageWidth, pageHeight);
   return doc;
 }
 
@@ -259,8 +330,7 @@ export async function pdfBlob(
   if (tooTallForOneCanvas(el, opts)) {
     return (await bandedDoc(el, opts)).output("blob");
   }
-  const html2pdf = (await import("html2pdf.js")).default;
-  return html2pdf().set(opts).from(el).outputPdf("blob");
+  return (await html2pdfDoc(el, opts)).output("blob");
 }
 
 /** Renders `el` to a PDF and triggers a browser download as `filename`. */
@@ -277,9 +347,5 @@ export async function downloadPdf(
     (await bandedDoc(el, opts)).save(filename);
     return;
   }
-  const html2pdf = (await import("html2pdf.js")).default;
-  await html2pdf()
-    .set({ ...opts, filename })
-    .from(el)
-    .save();
+  (await html2pdfDoc(el, opts)).save(filename);
 }

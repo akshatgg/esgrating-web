@@ -451,7 +451,7 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
 
             <PillarSections narrative={narrative} final={final} />
 
-            <KpiAssessment coverage={coverage} />
+            <KpiAssessment coverage={coverage} pageNumbers={final.page_numbers} />
 
             {strengths.length || weaknesses.length ? (
               <>

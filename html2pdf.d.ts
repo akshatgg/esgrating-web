@@ -20,6 +20,11 @@ declare module "html2pdf.js" {
     from(src: HTMLElement | string, type?: "element" | "string" | "canvas" | "img"): Html2PdfWorker;
     set(opt: Html2PdfOptions): Html2PdfWorker;
     save(filename?: string): Promise<void>;
+    /** Runs the pipeline up to the jsPDF document and stops, so the finished document can
+     * be edited before it is saved -- lib/pdf.ts stamps the page numbers there, once the
+     * pagination it is numbering actually exists. */
+    toPdf(): Html2PdfWorker;
+    get(key: "pdf"): Promise<unknown>;
     outputPdf(type: "blob"): Promise<Blob>;
     outputPdf(type?: string, options?: unknown): Promise<unknown>;
   }

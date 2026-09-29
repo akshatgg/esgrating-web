@@ -6,6 +6,7 @@ import {
   useField,
   useReportEdit,
 } from "@/components/reports/edit/ReportEdit";
+import { cite, type PageNumbers } from "@/lib/pageNumbers";
 import styles from "@/components/reports/KpiAssessment.module.css";
 
 // The report's KPI Assessment: every KPI of every pillar, how well the uploaded
@@ -29,17 +30,28 @@ function points(n: number): string {
  * the scoring call's own reason for that page, so the column explains the score rather
  * than restating it. A KPI the report never addressed has none -- its 0 needs no
  * explaining. */
-function reasonOf(k: KpiCoverageCategory["kpis"][number]): string {
+function reasonOf(k: KpiCoverageCategory["kpis"][number], numbers: PageNumbers): string {
   const ev = k.evidence;
   if (!ev?.reason) return "";
-  // Page numbers are left out: the column is the reason for the score, and the citations
-  // read as working notes in a client's report (user, 2026-09-22). The capping note stays,
-  // since a score held down to 20 is otherwise unexplained.
+  // The page is cited so a reader can check the evidence for themselves. It was dropped
+  // once because the numbers read as working notes (user, 2026-09-22) -- and because they
+  // were wrong: the sheet counted from the cover, not the page the reader sees. Now that
+  // the printed number is known it is worth showing (user, 2026-09-29).
+  const at = (page: number | string | undefined, text: string) => {
+    const where = cite(page, numbers);
+    return where ? `${where}: ${text}` : text;
+  };
   const parts = [
-    k.capped ? `Held at ${points(best(k))} — poor performance found: ${ev.reason}` : ev.reason,
+    k.capped
+      ? `Held at ${points(best(k))} — poor performance found: ${at(ev.page, String(ev.reason))}`
+      : at(ev.page, String(ev.reason)),
   ];
   for (const o of ev.also ?? []) {
-    if (o?.reason) parts.push(`${k.capped && parts.length === 1 ? "Best evidence: " : "Also: "}${o.reason}`);
+    if (o?.reason) {
+      parts.push(
+        `${k.capped && parts.length === 1 ? "Best evidence: " : "Also: "}${at(o.page, String(o.reason))}`,
+      );
+    }
   }
   return parts.map((t) => String(t).replace(/\.*$/, "")).join(". ") + ".";
 }
@@ -62,7 +74,14 @@ const scored = (data: KpiCoverageCategory) => data.method === KPI_SCORE_METHOD;
 /** A KPI's best score, 0–100 (older results carry it as points). */
 const best = (k: KpiCoverageCategory["kpis"][number]) => k.score ?? k.points;
 
-export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
+export default function KpiAssessment({
+  coverage,
+  pageNumbers,
+}: {
+  coverage: KpiCoverage;
+  /** Sheet -> printed page number, for the citations in the Reason column. */
+  pageNumbers?: PageNumbers;
+}) {
   // Every hook first: the early return below must not change how many run.
   const ctx = useReportEdit();
   const noteOverride = useField<string>("kpi_assessment_note", "");
@@ -76,7 +95,7 @@ export default function KpiAssessment({ coverage }: { coverage: KpiCoverage }) {
   const anyScored = categories.some((c) => scored(coverage[c]!));
   const editing = ctx?.editing ?? false;
   const reasonFor = (code: Cat, k: KpiCoverageCategory["kpis"][number]) =>
-    reasonEdits[code]?.[k.kpi] ?? reasonOf(k);
+    reasonEdits[code]?.[k.kpi] ?? reasonOf(k, pageNumbers);
   // The editor starts from whatever is showing, so an analyst rewords the real note
   // rather than an empty box.
   const noteText = noteOverride || (anyScored ? SCORED_NOTE : PROVEN_NOTE);

@@ -118,6 +118,12 @@ export type EsgFinal = {
   /** "kpi_score" on reports scored KPI by KPI (weights 35/30/35); absent on older ones (30/30/40). */
   scoring_method?: string;
   page_scores?: PageScoreRow[];
+  /** PDF sheet -> the number printed on that page (esgratings-api app/esg/extract.py).
+   * A page is held by its sheet, counted from the cover; a report starts its own numbering
+   * after the front matter, so citing the sheet read pages ahead of where the reader looked
+   * (user, 2026-09-29). Absent on reports analysed before this existed, and on pages with no
+   * readable folio -- those are named as sheets rather than passed off as page numbers. */
+  page_numbers?: Record<string, number>;
 };
 
 export type AnalysisStatus = "idle" | "running" | "done" | "failed";
@@ -192,6 +198,10 @@ export type BfsiReason = { page: number; score: number | null; reason: string };
 
 /** `ai_analysis` — the return of `bfsi_analyze()` (bfsi.md §4c). */
 export type BfsiAi = {
+  /** PDF sheet -> the number printed on that page (esgratings-api app/esg/extract.py), so a
+   * page is cited by the number the reader can see rather than the sheet counted from the
+   * cover. Absent on analyses from before this existed. */
+  page_numbers?: Record<string, number>;
   e_score: number;
   s_score: number;
   g_score: number;
