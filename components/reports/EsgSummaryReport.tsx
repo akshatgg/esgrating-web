@@ -154,12 +154,48 @@ function Section({ k, title, children }: { k: string; title: string; children: R
   );
 }
 
+/** "a, b and c" -- a list read as a sentence rather than a cell. */
+function sentenceList(items: string[]): string {
+  const clean = items.map((t) => t.trim().replace(/\.$/, "")).filter(Boolean);
+  if (clean.length <= 1) return clean.join("");
+  return `${clean.slice(0, -1).join(", ")} and ${clean[clean.length - 1]}`;
+}
+
+/** One paragraph per pillar, written from its KPI results.
+ *
+ * Only for when the written narrative is not available. Without it this section used to
+ * render as two empty boxes and an empty table (user, 2026-09-30); the client wants it in
+ * paragraph form, always, so it is never left blank. The full written text replaces this
+ * as soon as the narrative exists. */
+function fallbackDrivers(pillars: Record<string, Pillar>, kind: "strong" | "gaps"): string[] {
+  return Object.values(pillars).map((pl) => {
+    const names = (kind === "strong" ? pl.strong : pl.gaps).map((r) => r.kpi);
+    const n = names.length;
+    if (kind === "strong") {
+      return n
+        ? `${pl.name}: the report proves ${n} KPI${n === 1 ? "" : "s"} strongly -- ` +
+            `${sentenceList(names)}. These disclosures carry measured results, targets or ` +
+            `independent evidence, and they are what support the ${pl.name} score of ${pl.score}.`
+        : `${pl.name}: no KPI in this pillar is proven strongly, so nothing here lifts the ` +
+            `${pl.name} score of ${pl.score}.`;
+    }
+    return n
+      ? `${pl.name}: the report does not address ${n} KPI${n === 1 ? "" : "s"} -- ` +
+          `${sentenceList(names)}. Each counts as zero in the ${pl.name} score of ${pl.score}, ` +
+          `and together they are the first places to improve disclosure.`
+      : `${pl.name}: every KPI in this pillar is addressed somewhere in the report.`;
+  });
+}
+
 const EsgSummaryReport = forwardRef<HTMLDivElement, { facts: SummaryFacts; narrative?: Narrative | null }>(
   function EsgSummaryReport({ facts, narrative }, ref) {
     const n = narrative ?? {};
     const p = facts.pillars;
-    const strengths = (n.strengths ?? []).slice(0, 5);
-    const weaknesses = (n.weaknesses ?? []).slice(0, 5);
+    const written = (n.strengths ?? []).slice(0, 5);
+    const writtenWeak = (n.weaknesses ?? []).slice(0, 5);
+    // Never an empty box: without the written narrative, a paragraph per pillar.
+    const strengths = written.length ? written : fallbackDrivers(p, "strong");
+    const weaknesses = writtenWeak.length ? writtenWeak : fallbackDrivers(p, "gaps");
     const priorities = (n.priorities ?? []).slice(0, 5);
 
     return (
@@ -336,6 +372,14 @@ const EsgSummaryReport = forwardRef<HTMLDivElement, { facts: SummaryFacts; narra
                 <th>Why it matters</th><th>Suggested evidence / action to improve assessment</th></tr>
             </thead>
             <tbody>
+              {priorities.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>
+                    The improvement priorities are written with the rating narrative, which is not
+                    available for this report yet. The gaps each pillar leaves are set out above.
+                  </td>
+                </tr>
+              ) : null}
               {priorities.map((pr, i) => (
                 <tr key={i}>
                   <td>{i + 1}</td>

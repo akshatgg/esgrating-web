@@ -62,10 +62,6 @@ const SCORE_SCALE: ReadonlyArray<readonly [string, Grade, string]> = [
   ["< 40", "D", "Below Average"],
 ];
 
-function listOr(items: string[], empty = "—"): string {
-  return items.length ? items.join("; ") : empty;
-}
-
 /** A block of the written rating. Outside edit mode its paragraphs; in edit mode one
  * textarea holding the whole block, blank lines and all -- an analyst corrects a
  * paragraph, not a field (user, 2026-09-21). */
@@ -219,6 +215,49 @@ function driversOf(items: RatingDriver[] | undefined): RatingDriver[] {
 function strengthsAndGaps(data: KpiCoverageCategory) {
   const pick = (level: string) => data.kpis.filter((k) => k.level === level).map((k) => k.kpi);
   return { strong: pick("strong"), partial: pick("partial"), none: pick("none") };
+}
+
+/** "a, b and c" -- a list read as a sentence rather than a cell. */
+function sentenceList(items: string[]): string {
+  const clean = items.map((t) => t.trim().replace(/\.$/, "")).filter(Boolean);
+  if (clean.length <= 1) return clean.join("");
+  return `${clean.slice(0, -1).join(", ")} and ${clean[clean.length - 1]}`;
+}
+
+/** A pillar's strengths and gaps as paragraphs, written from the KPI results.
+ *
+ * Used only when the written narrative is not available -- a report analysed before it
+ * existed, or one whose run could not write it. It is prose on purpose: the client asked
+ * for this section in paragraph form, never as a table (user, 2026-09-30), and the old
+ * fallback here was a table of KPI names that came back every time the narrative did not
+ * load. */
+function pillarParagraphs(label: string, data: KpiCoverageCategory, kpiScored: boolean): string[] {
+  const { strong, partial, none } = strengthsAndGaps(data);
+  const out: string[] = [];
+  out.push(
+    strong.length
+      ? `The report proves ${strong.length} ${label} KPI${strong.length === 1 ? "" : "s"} strongly` +
+          `${kpiScored ? " (scored 61–100)" : ""}: ${sentenceList(strong)}. These are the ` +
+          `areas where the disclosure carries measured results, targets or independent evidence ` +
+          `and so support the ${label} score.`
+      : `The report does not prove any ${label} KPI strongly, so no ${label} indicator is ` +
+          `supported by measured results, targets met or independent evidence.`,
+  );
+  if (partial.length) {
+    out.push(
+      `It partly proves ${partial.length} more${kpiScored ? " (scored 1–60)" : ""}: ` +
+        `${sentenceList(partial)}. Each is addressed, but without the quantified, time-bound ` +
+        `or assured detail that would lift it to a strong result.`,
+    );
+  }
+  out.push(
+    none.length
+      ? `It does not address ${none.length} ${label} KPI${none.length === 1 ? "" : "s"}: ` +
+          `${sentenceList(none)}. These gaps count as zero in the ${label} score and are the ` +
+          `first places to improve disclosure.`
+      : `Every ${label} KPI is addressed somewhere in the report.`,
+  );
+  return out;
 }
 
 type EsgDetailedReportProps = {
@@ -478,36 +517,20 @@ const EsgDetailedReport = forwardRef<HTMLDivElement, EsgDetailedReportProps>(fun
                 {/* No narrative -- a report analysed before it existed, or one whose run
                     could not write it: the KPI lists it was built from, as before. */}
               <h3>Strengths and Gaps</h3>
-              <p className={styles["factor-note"]}>
-                Strengths are the KPIs the report proves strongly
-                {kpiScored ? " (scored 61–100; partly proven = 1–60)" : ""}; gaps are the KPIs it does
-                not address, and the first places to improve disclosure.
-              </p>
-              <table className={styles.data}>
-                <tbody>
-                  <tr>
-                    <th style={{ width: "16%" }}>Pillar</th>
-                    <th>Proven strongly</th>
-                    <th>Partly proven</th>
-                    <th>Not found (gaps)</th>
-                  </tr>
-                  {PILLARS.map((p) => {
-                    const data = coverage[p.label];
-                    if (!data) return null;
-                    const s = strengthsAndGaps(data);
-                    return (
-                      <tr key={p.key}>
-                        <td>
-                          <b>{p.label}</b>
-                        </td>
-                        <td>{listOr(s.strong)}</td>
-                        <td>{listOr(s.partial)}</td>
-                        <td className={styles.neg}>{listOr(s.none, "None — every KPI is addressed")}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              {PILLARS.map((p) => {
+                const data = coverage[p.label];
+                if (!data) return null;
+                return (
+                  <div key={p.key}>
+                    <h4 className={extra["driver-heading"]}>{p.label}</h4>
+                    {pillarParagraphs(p.label, data, kpiScored).map((t, i) => (
+                      <p key={i} className={extra["pillar-para"]}>
+                        {t}
+                      </p>
+                    ))}
+                  </div>
+                );
+              })}
               </>
             )}
 
