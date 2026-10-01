@@ -29,18 +29,7 @@ export type EsgSheetRow = { label: ReactNode; value: ReactNode };
 
 export type EsgReportSheetProps = {
   /** The title card's four fields and the grade badge beside them. */
-  header: {
-    company: ReactNode;
-    /** The verified stock exchange and ticker (esgratings-api app/esg/sector.py). Optional:
-     * the ratings-list one-pager has no listing behind it, and a rating whose sector could
-     * not be verified shows neither rather than an empty labelled row. */
-    exchange?: ReactNode;
-    ticker?: ReactNode;
-    sector: ReactNode;
-    fy: ReactNode;
-    reportDate: ReactNode;
-    badge: ReactNode;
-  };
+  header: { company: ReactNode; sector: ReactNode; fy: ReactNode; reportDate: ReactNode; badge: ReactNode };
   /** Rating Summary: one row per pillar. */
   pillars: EsgSheetPillarRow[];
   /** An italic line under the pillar rows. */
@@ -103,18 +92,6 @@ const EsgReportSheet = forwardRef<HTMLDivElement, EsgReportSheetProps>(function 
                     <td>Company:</td>
                     <td className={styles.item_bold}>{header.company}</td>
                   </tr>
-                  {header.exchange ? (
-                    <tr>
-                      <td>Exchange:</td>
-                      <td className={styles.item_bold}>{header.exchange}</td>
-                    </tr>
-                  ) : null}
-                  {header.ticker ? (
-                    <tr>
-                      <td>Ticker:</td>
-                      <td className={styles.item_bold}>{header.ticker}</td>
-                    </tr>
-                  ) : null}
                   <tr>
                     <td>Sector:</td>
                     <td className={styles.item_bold}>{header.sector}</td>

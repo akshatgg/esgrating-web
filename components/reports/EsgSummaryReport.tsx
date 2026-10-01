@@ -6,6 +6,7 @@ import {
   DraftTextarea,
   EditableHeading,
   EditableText,
+  PillarScore,
   ScoreInput,
   useEditing,
   useField,
@@ -219,6 +220,11 @@ const EsgSummaryReport = forwardRef<HTMLDivElement, { facts: SummaryFacts; narra
   function EsgSummaryReport({ facts, narrative }, ref) {
     const n = narrative ?? {};
     const p = facts.pillars;
+    // The same fields the ESG Rating Report and the Detailed Report edit, so a company name,
+    // sector or year corrected on any one of the three is corrected on all of them.
+    const company = useField("company", facts.company);
+    const sector = useField("sector", facts.sector);
+    const period = useField("fy", facts.period);
     const written = (n.strengths ?? []).slice(0, 5);
     const writtenWeak = (n.weaknesses ?? []).slice(0, 5);
     // Never an empty box: without the written narrative, a paragraph per pillar.
@@ -242,16 +248,33 @@ const EsgSummaryReport = forwardRef<HTMLDivElement, { facts: SummaryFacts; narra
         </EditableHeading>
         <table className={styles.table}>
           <tbody>
-            <tr><th>Company</th><td>{facts.company}</td><th>Sector</th><td>{facts.sector}</td></tr>
-            <tr><th>CIN / GSTIN</th><td>{facts.identifier}</td><th>Reporting period</th><td>{facts.period}</td></tr>
-            <tr><th>Assessment date</th><td>{facts.assessed}</td><th>Rating status</th><td>{facts.status}</td></tr>
+            <tr>
+              <th>Company</th>
+              <td><EditableText k="company" label="Company" value={company} /></td>
+              <th>Sector</th>
+              <td><EditableText k="sector" label="Sector" value={sector} /></td>
+            </tr>
+            <tr>
+              <th>CIN / GSTIN</th><td><Slot k="CSE_IDENTIFIER">{facts.identifier}</Slot></td>
+              <th>Reporting period</th>
+              <td><EditableText k="fy" label="Reporting period" value={period} /></td>
+            </tr>
+            <tr>
+              <th>Assessment date</th><td><Slot k="ASSESSMENT_DATE">{facts.assessed}</Slot></td>
+              <th>Rating status</th><td><Slot k="RATING_STATUS">{facts.status}</Slot></td>
+            </tr>
             <tr>
               <th>Overall Score</th><td>{fmt(facts.overall)} / 100</td>
               <th>Rating</th><td>{facts.grade} — {facts.label}</td>
             </tr>
             <tr>
-              <th>Score movement</th><td>{facts.movement}</td>
-              <th>Data completeness</th><td>{facts.completeness.result} ({Math.round(facts.completeness.pct ?? 0)}%)</td>
+              <th>Score movement</th><td><Slot k="SCORE_MOVEMENT">{facts.movement}</Slot></td>
+              <th>Data completeness</th>
+              <td>
+                <Slot k="OVERALL_DATA_COMPLETENESS">
+                  {`${facts.completeness.result} (${Math.round(facts.completeness.pct ?? 0)}%)`}
+                </Slot>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -260,7 +283,11 @@ const EsgSummaryReport = forwardRef<HTMLDivElement, { facts: SummaryFacts; narra
           {CODES.map((c) => (
             <div key={c} className={styles.tile}>
               <span className={styles.tileName}>{PILLAR_NAME[c].toUpperCase()}</span>
-              <span className={styles.tileScore}>{fmt(p[c]?.score)}</span>
+              <span className={styles.tileScore}>
+                <PillarScore cat={c as Cat} pillar={PILLAR_NAME[c]} score={p[c]?.score ?? 0}>
+                  {fmt(p[c]?.score)}
+                </PillarScore>
+              </span>
               <span className={styles.tileGrade}>{p[c]?.grade} · {p[c]?.label}</span>
             </div>
           ))}
