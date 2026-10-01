@@ -6,10 +6,12 @@ import {
   DraftTextarea,
   EditableHeading,
   EditableText,
+  ScoreInput,
   useEditing,
   useField,
   useReportEdit,
 } from "@/components/reports/edit/ReportEdit";
+import type { Cat } from "@/lib/reportEdits";
 import styles from "@/components/reports/EsgSummaryReport.module.css";
 
 // The Rating Summary, on screen. This is the client's Word template
@@ -22,12 +24,15 @@ import styles from "@/components/reports/EsgSummaryReport.module.css";
 // the summary_text map. The API keys the Word file off the same names, so a correction
 // here is what comes out of Download summary (Word).
 //
-// The numbers are never editable here: pillar and KPI scores are corrected on the
-// Detailed Report, where changing one recomputes the pillar and the overall score. A
-// number typed over in two places would let the documents disagree.
+// A KPI score is editable here exactly as it is on the Detailed Report: both write the same
+// edit, and saving it recomputes the pillar and the overall score for every report. The
+// computed numbers -- pillar and overall scores -- are not typed over here, so the
+// documents cannot be made to disagree.
 
 type Theme = { name: string; score: number; label: string; drivers: string; note: string };
 type KpiRow = {
+  /** The KPI's name exactly as the analysis stored it: what a score edit is saved under. */
+  key?: string;
   pillar: string; theme: string | null; kpi: string; score: number;
   driver: string; materiality: string; evidence_type: string;
 };
@@ -151,6 +156,29 @@ function Section({ k, title, children }: { k: string; title: string; children: R
       </EditableHeading>
       {children}
     </section>
+  );
+}
+
+const PILLAR_CODE: Record<string, Cat> = { Environment: "E", Social: "S", Governance: "G" };
+
+/** A KPI score in the summary's KPI table: an input while editing, as it is on the Detailed
+ * Report's KPI Assessment. Both write the same edit, so a score changed on either report is
+ * the score on every report, and saving it recomputes the pillar and the overall rating
+ * (user, 2026-10-01). */
+function KpiScoreCell({ row }: { row: KpiRow }) {
+  const ctx = useReportEdit();
+  const code = PILLAR_CODE[row.pillar];
+  if (!ctx?.editing || !code || !ctx.kpisEditable?.[code] || !ctx.setKpiScore) {
+    return <>{fmt(row.score)}</>;
+  }
+  const name = row.key ?? row.kpi;
+  const original = ctx.kpis?.[code]?.find((k) => k.kpi === name)?.original_score ?? row.score;
+  return (
+    <ScoreInput
+      label={`${row.pillar} KPI ${row.kpi} score (0 to 100)`}
+      value={ctx.kpiScores?.[code]?.[name] ?? row.score}
+      onCommit={(v) => ctx.setKpiScore!(code, name, v === null || v === original ? null : v)}
+    />
   );
 }
 
@@ -333,7 +361,7 @@ const EsgSummaryReport = forwardRef<HTMLDivElement, { facts: SummaryFacts; narra
                   <td>{r.pillar}</td>
                   <td>{r.theme || "—"}</td>
                   <td>{r.kpi}</td>
-                  <td>{fmt(r.score)}</td>
+                  <td><KpiScoreCell row={r} /></td>
                   <td>{[r.materiality, r.evidence_type].filter(Boolean).join(" · ") || "—"}</td>
                   <td><Slot k={`KPI_${i + 1}_DRIVER`}>{r.driver}</Slot></td>
                   <td>{r.score >= 61 ? "Strong" : r.score > 0 ? "Partial" : "Not found"}</td>
