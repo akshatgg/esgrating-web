@@ -11,8 +11,6 @@
 
 export type PageNumbers = Record<string, number> | undefined;
 
-const SHEET = "PDF sheet";
-
 /** The number printed on that sheet, or null when there is none to cite. */
 export function printedPage(page: number | string | undefined, numbers: PageNumbers): number | null {
   if (page === undefined || page === null) return null;
@@ -20,22 +18,17 @@ export function printedPage(page: number | string | undefined, numbers: PageNumb
   return typeof printed === "number" ? printed : null;
 }
 
-/** One page as a citation: "p.32", or "PDF sheet 34" where the folio is unknown. Named as a
- * sheet rather than passed off as a page number, so a reader who cannot find page 34 knows
- * which number they are holding. */
+/** One page as a citation, always "p.32": the number printed on the page where it is known,
+ * the sheet number otherwise. One form everywhere -- a page with no readable number used to
+ * be cited as "PDF sheet 34", which read as a different kind of reference (user, 2026-10-02). */
 export function cite(page: number | string | undefined, numbers: PageNumbers): string {
   if (page === undefined || page === null) return "";
-  const printed = printedPage(page, numbers);
-  return printed !== null ? `p.${printed}` : `${SHEET} ${page}`;
+  return `p.${printedPage(page, numbers) ?? page}`;
 }
 
-/** A list of pages. All printed or all sheets, never a mixture: two numbering schemes in one
- * list is how the reader was misled in the first place. */
+/** A list of pages, as "p. 32, 33". */
 export function citeAll(pages: Array<number | string> | undefined, numbers: PageNumbers): string {
   const items = pages ?? [];
   if (items.length === 0) return "";
-  const printed = items.map((p) => printedPage(p, numbers));
-  return printed.every((n) => n !== null)
-    ? `p. ${printed.join(", ")}`
-    : `${SHEET} ${items.join(", ")}`;
+  return `p. ${items.map((p) => printedPage(p, numbers) ?? p).join(", ")}`;
 }
