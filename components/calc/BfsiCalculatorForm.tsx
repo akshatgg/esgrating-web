@@ -19,7 +19,7 @@ import type { BfsiOptions } from "@/lib/types";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CIN_GSTIN_RE = /^([A-Z0-9]{21}|[0-9A-Z]{15})$/;
 
-const DEFAULT_MAX_FILE_MB = 20;
+const DEFAULT_MAX_FILE_MB = 100;
 const ACCEPT = ".pdf,.docx";
 
 type FormState = {

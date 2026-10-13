@@ -26,7 +26,7 @@ const PHONE_SEPARATORS_RE = /[\s\-().]/g;
 // the report is uploaded.
 const REPORT_YEAR_RE = /^\d{4}(?:-\d{4})?$/;
 
-const MAX_FILE_MB = 20; // matches the API's MAX_FILE_BYTES (app/esg/submissions.py)
+const MAX_FILE_MB = 100; // matches the API's MAX_FILE_BYTES (app/esg/submissions.py)
 const ACCEPT = ".pdf,.doc,.docx";
 
 type FormState = {
